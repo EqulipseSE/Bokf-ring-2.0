@@ -22,5 +22,16 @@ export const sessions = pgTable("sessions", {
     .defaultNow(),
 });
 
+export const companies = pgTable("companies", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  // Format NNNNNN-NNNN, valideras i lib/organisationsnummer.ts.
+  orgNumber: text("org_number").notNull().unique(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
+export type Company = typeof companies.$inferSelect;
