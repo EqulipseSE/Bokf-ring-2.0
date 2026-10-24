@@ -8,7 +8,7 @@ import { db } from "@/lib/db";
 import { companies } from "@/lib/db/schema";
 
 export const metadata: Metadata = {
-  title: "Klientföretag — Bokföring 2.0",
+  title: "Klientföretag — Omnio",
 };
 
 export default async function KlientforetagPage() {

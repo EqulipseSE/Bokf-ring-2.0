@@ -27,8 +27,8 @@ export async function generateMetadata({
   const company = await getCompany(id);
   return {
     title: company
-      ? `${company.name} — Bokföring 2.0`
-      : "Företag — Bokföring 2.0",
+      ? `${company.name} — Omnio`
+      : "Företag — Omnio",
   };
 }
 

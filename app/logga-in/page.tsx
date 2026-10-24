@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = {
-  title: "Logga in — Bokföring 2.0",
+  title: "Logga in — Omnio",
 };
 
 export default async function LoginPage() {
@@ -16,7 +16,7 @@ export default async function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-10 text-center">
           <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">
-            Bokföring 2.0
+            Omnio
           </h1>
           <p className="mt-2 text-sm text-neutral-500">
             Logga in med ditt byråkonto

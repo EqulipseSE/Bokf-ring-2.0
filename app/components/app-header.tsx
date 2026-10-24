@@ -8,7 +8,7 @@ export function AppHeader({ userName }: { userName: string }) {
         href="/klientforetag"
         className="font-semibold tracking-tight text-neutral-900"
       >
-        Bokföring 2.0
+        Omnio
       </Link>
       <div className="flex items-center gap-4">
         <span className="text-sm text-neutral-500">{userName}</span>
