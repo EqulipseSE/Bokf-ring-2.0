@@ -6,7 +6,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { CompanyForm } from "./company-form";
 
 export const metadata: Metadata = {
-  title: "Nytt företag — Bokföring 2.0",
+  title: "Nytt företag — Omnio",
 };
 
 export default async function NyttForetagPage() {

@@ -1,4 +1,4 @@
-# Bokföring 2.0
+# Omnio
 
 Minimalistiskt webbaserat bokföringsprogram för intern användning på redovisningsbyrån.
 Detta är **etapp 0**: projektgrund och inloggning. Bokföringsfunktionerna kommer i senare steg.

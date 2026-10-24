@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Bokföring 2.0",
+  title: "Omnio",
   description: "Internt bokföringsprogram för redovisningsbyrån",
 };
 
