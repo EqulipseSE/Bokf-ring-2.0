@@ -105,33 +105,26 @@ export function CompanyMenu({
       {showVoucherSubmenu && submenu ? (
         <nav
           aria-label="Verifikationer"
-          className="flex flex-wrap items-stretch gap-0.5 border-y border-neutral-400 bg-neutral-300 px-5 py-1"
+          className="flex flex-wrap items-center gap-0 border-t border-neutral-700 bg-neutral-600 px-3 py-0.5"
         >
-          <ToolbarItem
-            item={{ label: "Lista", href: voucherBase, icon: "list" }}
-            pathname={pathname}
+          <SubmenuLink
+            href={voucherBase}
+            icon="list"
+            label="Lista"
             active={submenu.lista}
-            compact
           />
-          <ToolbarItem
-            item={{ label: "Kort", href: kortHref, icon: "card" }}
-            pathname={pathname}
+          <SubmenuLink
+            href={kortHref}
+            icon="card"
+            label="Kort"
             active={submenu.kort}
-            compact
           />
-          <span
-            aria-hidden
-            className="mx-1.5 my-0.5 w-px self-stretch bg-neutral-300"
-          />
-          <ToolbarItem
-            item={{
-              label: "Ny verifikation",
-              href: `${voucherBase}/ny`,
-              icon: "plus",
-            }}
-            pathname={pathname}
+          <span aria-hidden className="mx-1 h-4 w-px bg-neutral-400" />
+          <SubmenuLink
+            href={`${voucherBase}/ny`}
+            icon="plus"
+            label="Ny verifikation"
             active={submenu.ny}
-            compact
             onNavigate={() => setCardTarget(companyId, { kind: "draft" })}
           />
         </nav>
@@ -143,56 +136,72 @@ export function CompanyMenu({
 function ToolbarItem({
   item,
   pathname,
-  active,
-  compact,
-  onNavigate,
 }: {
   item: MenuItem;
   pathname: string;
-  active?: boolean;
-  compact?: boolean;
-  onNavigate?: () => void;
 }) {
-  const current =
-    active ?? ("href" in item && itemHrefIsCurrent(item.href, pathname));
-  const className = toolbarClass(Boolean(current), compact);
-  const iconClass = compact ? "h-4 w-4" : "h-6 w-6";
+  const className = toolbarClass(
+    "href" in item && itemHrefIsCurrent(item.href, pathname)
+  );
 
   if ("action" in item) {
     return (
       <form action={logout}>
         <button type="submit" className={className}>
-          <MenuIconSvg name={item.icon} className={iconClass} />
+          <MenuIconSvg name={item.icon} className="h-6 w-6" />
           <span>{item.label}</span>
         </button>
       </form>
     );
   }
 
+  const current = itemHrefIsCurrent(item.href, pathname);
   return (
     <Link
       href={item.href}
       aria-current={current ? "page" : undefined}
-      onClick={onNavigate}
       className={className}
     >
-      <MenuIconSvg name={item.icon} className={iconClass} />
+      <MenuIconSvg name={item.icon} className="h-6 w-6" />
       <span>{item.label}</span>
     </Link>
   );
 }
 
-function toolbarClass(active: boolean, compact?: boolean): string {
-  if (compact) {
-    return `flex min-w-16 flex-col items-center gap-0.5 rounded px-2 py-0.5 text-[10px] leading-tight transition ${
-      active
-        ? "bg-white font-medium text-neutral-900 shadow-sm ring-1 ring-neutral-300"
-        : "text-neutral-700 hover:bg-white/80 hover:text-neutral-900"
-    }`;
-  }
+function toolbarClass(active: boolean): string {
   return `flex min-w-24 flex-col items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs transition ${
     active
       ? "bg-white font-medium text-neutral-900 shadow-sm ring-1 ring-neutral-200"
       : "text-neutral-600 hover:bg-white hover:text-neutral-900"
   }`;
+}
+
+function SubmenuLink({
+  href,
+  icon,
+  label,
+  active,
+  onNavigate,
+}: {
+  href: string;
+  icon: MenuItem["icon"];
+  label: string;
+  active: boolean;
+  onNavigate?: () => void;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      onClick={onNavigate}
+      className={`inline-flex items-center gap-1 px-2 py-1 text-[11px] leading-none transition ${
+        active
+          ? "bg-neutral-800 font-medium text-white"
+          : "text-neutral-100 hover:bg-neutral-500"
+      }`}
+    >
+      <MenuIconSvg name={icon} className="h-3.5 w-3.5" />
+      <span>{label}</span>
+    </Link>
+  );
 }
