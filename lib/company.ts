@@ -3,7 +3,8 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import { cache } from "react";
 import { db } from "@/lib/db";
-import { companies, type Company } from "@/lib/db/schema";
+import { ensureCompanyBooks } from "@/lib/db/seed-company-books";
+import { accounts, companies, type Account, type Company } from "@/lib/db/schema";
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -18,3 +19,13 @@ export const getCompany = cache(async (id: string): Promise<Company | null> => {
     .limit(1);
   return result[0] ?? null;
 });
+
+/** Alla konton i företagets kontoplan, även inaktiva. */
+export async function listCompanyChart(companyId: string): Promise<Account[]> {
+  await ensureCompanyBooks(companyId);
+  return db
+    .select()
+    .from(accounts)
+    .where(eq(accounts.companyId, companyId))
+    .orderBy(accounts.number);
+}

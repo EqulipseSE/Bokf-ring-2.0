@@ -1,7 +1,6 @@
 export const PLACEHOLDERS = {
   foretagsinstallningar: "Företagsinställningar",
   momskontroll: "Momskontroll",
-  kontoplan: "Kontoplan",
   periodlasning: "Periodlåsning",
   arsavslut: "Årsavslut",
   balansrapport: "Balansrapport",
@@ -16,7 +15,10 @@ export function isPlaceholderSlug(value: string): value is PlaceholderSlug {
   return value in PLACEHOLDERS;
 }
 
-export function companyHref(companyId: string, slug: PlaceholderSlug | "verifikationer"): string {
+export function companyHref(
+  companyId: string,
+  slug: PlaceholderSlug | "verifikationer" | "kontoplan"
+): string {
   return `/foretag/${companyId}/${slug}`;
 }
 

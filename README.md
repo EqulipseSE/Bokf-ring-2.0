@@ -39,6 +39,21 @@ pnpm dev
 Öppna [http://localhost:3000](http://localhost:3000) och logga in. Välj ett företag och gå till
 **Bokföring → Verifikationer** för att registrera och lista verifikationer.
 
+## Kontoplan (BAS 2026)
+
+Nya företag får **hela BAS 2026-kontoplanen** (1 282 konton) som standard — kontonummer
+och namn från BAS-kontogruppens officiella kontotabell
+([bas.se/kontoplaner](https://www.bas.se/kontoplaner/)). Vid **Nytt företag** kan du
+lägga till, ta bort eller byta namn på konton innan du sparar. Under
+**Bokföring → Kontoplan** visas företagets faktiska lista.
+
+Befintliga företag som skapades med den korta 14-kontolistan lämnas orörda. För att
+komplettera med saknade BAS-konton (befintliga nummer och namn ändras inte):
+
+```bash
+pnpm upgrade-accounts 556036-0793
+```
+
 ## Användare och inloggning
 
 Det finns **ingen öppen registrering**. Alla konton (byråns medarbetare) skapas från
