@@ -45,6 +45,7 @@ export type VoucherDetail = {
     accountName: string;
     debit: number;
     credit: number;
+    vatCode: string | null;
     text: string | null;
   }[];
   debitOre: number;
@@ -184,6 +185,7 @@ export async function getVoucher(
       accountName: accounts.name,
       debit: voucherLines.debit,
       credit: voucherLines.credit,
+      vatCode: voucherLines.vatCode,
       text: voucherLines.text,
     })
     .from(voucherLines)

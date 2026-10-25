@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
+import { VatCodeSelect } from "@/app/components/vat-code-select";
 import type { Account } from "@/lib/db/schema";
 import { formatOre, formatOreInput, parseAmountToOre } from "@/lib/money";
 import { UNDERLAG_ACCEPT, validateUnderlagMeta } from "@/lib/underlag";
@@ -21,6 +22,7 @@ type LineDraft = {
   accountId: string;
   accountNumber: string;
   accountName: string;
+  vatCode: string;
   debit: string;
   credit: string;
 };
@@ -39,6 +41,7 @@ function createLine(): LineDraft {
     accountId: "",
     accountNumber: "",
     accountName: "",
+    vatCode: "",
     debit: "",
     credit: "",
   };
@@ -142,6 +145,7 @@ export function VoucherForm({
                 accountId: account?.id ?? "",
                 accountNumber: account?.number ?? line.accountNumber,
                 accountName: account?.name ?? "",
+                vatCode: account?.vatCode ?? "",
                 debit: line.debit || remainder.debit,
                 credit: line.credit || remainder.credit,
               }
@@ -217,6 +221,7 @@ export function VoucherForm({
         accountId: line.accountId,
         debitOre: parseAmountToOre(line.debit) ?? 0,
         creditOre: parseAmountToOre(line.credit) ?? 0,
+        vatCode: line.vatCode || null,
       }));
 
     startTransition(async () => {
@@ -272,7 +277,12 @@ export function VoucherForm({
       setAnchorDate(draft.dateInput);
       setBaselineDate(draft.defaultDate);
       setText(draft.text);
-      setLines(draft.lines);
+      setLines(
+        draft.lines.map((line) => ({
+          ...line,
+          vatCode: line.vatCode ?? "",
+        }))
+      );
       setAttachment(draft.attachment);
       setPreviewUrl(draft.previewUrl);
       if (draft.previewUrl) setPreviewOpen(true);
@@ -423,6 +433,7 @@ export function VoucherForm({
                 <tr className="border-b border-neutral-200 bg-neutral-100 text-left text-xs font-medium text-neutral-600">
                   <th className="w-24 px-2 py-2">Konto</th>
                   <th className="px-2 py-2">Benämning</th>
+                  <th className="w-20 px-2 py-2">Momskod</th>
                   <th className="w-32 px-2 py-2 text-right">Debet</th>
                   <th className="w-32 px-2 py-2 text-right">Kredit</th>
                 </tr>
@@ -448,11 +459,16 @@ export function VoucherForm({
                             accountNumber,
                             accountId: "",
                             accountName: "",
+                            vatCode: "",
                           })
                         }
                         onSelect={(account) => {
                           if (!account) {
-                            updateLine(index, { accountId: "", accountName: "" });
+                            updateLine(index, {
+                              accountId: "",
+                              accountName: "",
+                              vatCode: "",
+                            });
                             return;
                           }
                           applyAccount(index, account);
@@ -467,6 +483,15 @@ export function VoucherForm({
                         value={line.accountName}
                         aria-label={`Benämning rad ${index + 1}`}
                         className={`${cellInputClass} text-neutral-600`}
+                      />
+                    </td>
+                    <td className="p-0 align-middle">
+                      <VatCodeSelect
+                        compact
+                        tabIndex={-1}
+                        value={line.vatCode}
+                        ariaLabel={`Momskod rad ${index + 1}`}
+                        onChange={(vatCode) => updateLine(index, { vatCode })}
                       />
                     </td>
                     <td className="p-0 align-top">
@@ -538,7 +563,7 @@ export function VoucherForm({
                   </tr>
                 ))}
                 <tr className="border-t border-neutral-200 bg-neutral-50 text-sm">
-                  <td colSpan={2} className="px-2 py-2 text-neutral-600">
+                  <td colSpan={3} className="px-2 py-2 text-neutral-600">
                     Summa
                   </td>
                   <td className="px-2 py-2 text-right tabular-nums text-neutral-900">
@@ -549,7 +574,7 @@ export function VoucherForm({
                   </td>
                 </tr>
                 <tr className="text-sm">
-                  <td colSpan={2} className="px-2 py-2 text-neutral-600">
+                  <td colSpan={3} className="px-2 py-2 text-neutral-600">
                     Diff
                   </td>
                   <td />
@@ -593,8 +618,8 @@ export function VoucherForm({
               </span>
             </div>
             <p className="pt-1 text-xs text-neutral-400">
-              Tab: konto → debet → kredit. Restbelopp föreslås på nästa rad. Ctrl+S
-              registrerar när diff är 0.
+              Tab: konto → debet → kredit. Momskod följer kontot och kan bytas.
+              Restbelopp föreslås på nästa rad. Ctrl+S registrerar när diff är 0.
             </p>
           </div>
           <button

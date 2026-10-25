@@ -85,36 +85,4 @@ export function parseAccountDrafts(
   return { accounts };
 }
 
-/** Gissar default-momskod från BAS-namn. Saknas tydlig ledtråd lämnas fältet tomt. */
-export function defaultVatCode(number: string, name: string): string | null {
-  const lower = name.toLocaleLowerCase("sv");
-  const rate = lower.includes("25 %") || lower.includes("25%")
-    ? "25"
-    : lower.includes("12 %") || lower.includes("12%")
-      ? "12"
-      : lower.includes("6 %") || lower.includes("6%")
-        ? "6"
-        : null;
-
-  if (number.startsWith("26")) {
-    if (lower.includes("redovisningskonto") || lower.includes("punktskatt")) {
-      return null;
-    }
-    if (lower.includes("ingående")) {
-      return rate ? `I${rate}` : "I25";
-    }
-    if (lower.includes("utgående")) {
-      return rate ? `U${rate}` : null;
-    }
-    return null;
-  }
-
-  if (!rate) return null;
-  if (number.startsWith("3") && lower.includes("försäljning")) {
-    return `U${rate}`;
-  }
-  if (number.startsWith("4") && lower.includes("inköp")) {
-    return `I${rate}`;
-  }
-  return null;
-}
+export { defaultVatCode } from "../vat-codes";
