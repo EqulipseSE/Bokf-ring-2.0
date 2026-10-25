@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { ensureCompanyBooks } from "@/lib/db/seed-company-books";
 import { voucherNumberLabel } from "@/lib/money";
@@ -20,6 +20,8 @@ const UUID_REGEX =
 
 export type VoucherListItem = {
   id: string;
+  letter: string;
+  number: number;
   numberLabel: string;
   date: string;
   text: string;
@@ -85,11 +87,13 @@ export async function listVouchers(
     .from(vouchers)
     .innerJoin(voucherSeries, eq(vouchers.seriesId, voucherSeries.id))
     .where(eq(vouchers.companyId, companyId))
-    .orderBy(desc(vouchers.registeredAt), desc(vouchers.number));
+    .orderBy(asc(voucherSeries.letter), asc(vouchers.number));
 
   const seriesCount = await countCompanySeries(companyId);
   return rows.map((row) => ({
     id: row.id,
+    letter: row.letter,
+    number: row.number,
     numberLabel: voucherNumberLabel(row.letter, row.number, seriesCount),
     date: row.date,
     text: row.text,
