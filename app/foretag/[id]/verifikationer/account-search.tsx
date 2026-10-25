@@ -2,6 +2,7 @@
 
 import { useId, useMemo, useState } from "react";
 import type { Account } from "@/lib/db/schema";
+import { matchesQuery } from "@/lib/search";
 
 type AccountSearchProps = {
   accounts: Account[];
@@ -149,14 +150,9 @@ export function AccountSearch({
 }
 
 function filterAccounts(accounts: Account[], query: string): Account[] {
-  const q = query.trim().toLocaleLowerCase("sv");
-  if (!q) return accounts.slice(0, 12);
+  if (!query.trim()) return accounts.slice(0, 12);
   return accounts
-    .filter(
-      (account) =>
-        account.number.startsWith(q) ||
-        account.name.toLocaleLowerCase("sv").includes(q)
-    )
+    .filter((account) => matchesQuery([account.number, account.name], query))
     .slice(0, 12);
 }
 
