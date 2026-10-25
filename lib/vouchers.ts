@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { DEFAULT_SERIES_LETTER } from "@/lib/db/bas-accounts";
 import { ensureCompanyBooks } from "@/lib/db/seed-company-books";
@@ -126,6 +126,20 @@ export async function listVouchers(
     text: row.text,
     amountOre: Number(row.amountOre),
   }));
+}
+
+/** Senast registrerade verifikationen, eller null om företaget saknar några. */
+export async function getLatestVoucherId(
+  companyId: string
+): Promise<string | null> {
+  await ensureCompanyBooks(companyId);
+  const [row] = await db
+    .select({ id: vouchers.id })
+    .from(vouchers)
+    .where(eq(vouchers.companyId, companyId))
+    .orderBy(desc(vouchers.registeredAt), desc(vouchers.number))
+    .limit(1);
+  return row?.id ?? null;
 }
 
 export async function getVoucher(

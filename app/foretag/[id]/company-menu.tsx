@@ -2,10 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { logout } from "@/app/logga-in/actions";
+import {
+  isOnVerifikationer,
+  resolveKortHref,
+  verifikationerBase,
+  voucherSubmenuState,
+} from "@/lib/voucher-nav";
 import { MenuIconSvg } from "./menu-icon";
 import { groupIdForPath, itemHrefIsCurrent, menuGroups, type MenuItem } from "./menu";
+import {
+  getWorkspace,
+  setCardTarget,
+  subscribeVoucherWorkspace,
+} from "./verifikationer/voucher-draft";
 
 export function CompanyMenu({
   companyId,
@@ -20,6 +31,11 @@ export function CompanyMenu({
   const [picked, setPicked] = useState<{ id: string; path: string } | null>(
     null
   );
+  const workspace = useSyncExternalStore(
+    subscribeVoucherWorkspace,
+    () => getWorkspace(companyId),
+    () => getWorkspace(companyId)
+  );
 
   const selectedId =
     picked && picked.path === pathname
@@ -27,6 +43,15 @@ export function CompanyMenu({
       : (pathGroupId ?? "bokforing");
   const selectedGroup =
     groups.find((group) => group.id === selectedId) ?? groups[1];
+  const submenu = voucherSubmenuState(pathname, companyId);
+  const showVoucherSubmenu =
+    selectedGroup.id === "bokforing" && isOnVerifikationer(pathname, companyId);
+  const kortHref = resolveKortHref({
+    companyId,
+    hasDirtyDraft: workspace.draft !== null,
+    target: workspace.target,
+  });
+  const voucherBase = verifikationerBase(companyId);
 
   return (
     <header className="border-b border-neutral-200 bg-white">
@@ -76,6 +101,38 @@ export function CompanyMenu({
           <ToolbarItem key={item.label} item={item} pathname={pathname} />
         ))}
       </nav>
+
+      {showVoucherSubmenu && submenu ? (
+        <nav
+          aria-label="Verifikationer"
+          className="flex flex-wrap items-stretch gap-0.5 border-t border-[#c9c8c6] px-5 py-[7px]"
+          style={{ backgroundColor: "#dfdedc" }}
+        >
+          <SubmenuLink
+            href={voucherBase}
+            icon="list"
+            label="Lista"
+            active={submenu.lista}
+          />
+          <SubmenuLink
+            href={kortHref}
+            icon="card"
+            label="Kort"
+            active={submenu.kort}
+          />
+          <span
+            aria-hidden
+            className="mx-1.5 my-1 w-px self-stretch bg-[#c9c8c6]"
+          />
+          <SubmenuLink
+            href={`${voucherBase}/ny`}
+            icon="plus"
+            label="Ny verifikation"
+            active={submenu.ny}
+            onNavigate={() => setCardTarget(companyId, { kind: "draft" })}
+          />
+        </nav>
+      ) : null}
     </header>
   );
 }
@@ -121,4 +178,34 @@ function toolbarClass(active: boolean): string {
       ? "bg-white font-medium text-neutral-900 shadow-sm ring-1 ring-neutral-200"
       : "text-neutral-600 hover:bg-white hover:text-neutral-900"
   }`;
+}
+
+function SubmenuLink({
+  href,
+  icon,
+  label,
+  active,
+  onNavigate,
+}: {
+  href: string;
+  icon: MenuItem["icon"];
+  label: string;
+  active: boolean;
+  onNavigate?: () => void;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      onClick={onNavigate}
+      className={`flex min-w-[4.5rem] flex-col items-center gap-[3px] rounded-lg px-2.5 py-[7px] text-[10px] leading-tight transition ${
+        active
+          ? "bg-white font-medium text-neutral-900 shadow-sm ring-1 ring-neutral-300"
+          : "text-neutral-600 hover:bg-white hover:text-neutral-900"
+      }`}
+    >
+      <MenuIconSvg name={icon} className="h-[18px] w-[18px]" />
+      <span>{label}</span>
+    </Link>
+  );
 }

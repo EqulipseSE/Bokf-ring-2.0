@@ -9,6 +9,12 @@ import { parseVoucherDate } from "@/lib/voucher-date";
 import { AccountSearch } from "./account-search";
 import { saveVoucher } from "./actions";
 import { UnderlagPreview } from "./underlag-preview";
+import {
+  clearDraft,
+  getWorkspace,
+  persistDraftIfDirty,
+  setCardTarget,
+} from "./voucher-draft";
 
 type LineDraft = {
   key: string;
@@ -79,6 +85,7 @@ export function VoucherForm({
   const [numberLabel, setNumberLabel] = useState(nextNumberLabel);
   const [dateInput, setDateInput] = useState(defaultDate);
   const [anchorDate, setAnchorDate] = useState(defaultDate);
+  const [baselineDate, setBaselineDate] = useState(defaultDate);
   const [dateError, setDateError] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [lines, setLines] = useState<LineDraft[]>(() => emptyLines(8));
@@ -97,6 +104,7 @@ export function VoucherForm({
   const accountRefs = useRef<Array<HTMLInputElement | null>>([]);
   const debitRefs = useRef<Array<HTMLInputElement | null>>([]);
   const creditRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const [hydrated, setHydrated] = useState(false);
 
   const totals = sumLines(lines);
   const difference = totals.debit - totals.credit;
@@ -228,6 +236,7 @@ export function VoucherForm({
       setNumberLabel(result.nextNumberLabel);
       setDateInput(isoDate);
       setAnchorDate(isoDate);
+      setBaselineDate(isoDate);
       setText("");
       setLines(emptyLines(8));
       setError(result.attachmentError ?? null);
@@ -238,6 +247,8 @@ export function VoucherForm({
       setPreviewUrl(null);
       setPreviewOpen(false);
       setAttachmentError(null);
+      clearDraft(companyId);
+      setCardTarget(companyId, { kind: "saved", id: result.voucherId });
       if (fileRef.current) fileRef.current.value = "";
       window.requestAnimationFrame(() => textRef.current?.focus());
     });
@@ -255,10 +266,40 @@ export function VoucherForm({
   });
 
   useEffect(() => {
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    };
-  }, [previewUrl]);
+    const draft = getWorkspace(companyId).draft;
+    if (draft) {
+      setDateInput(draft.dateInput);
+      setAnchorDate(draft.dateInput);
+      setBaselineDate(draft.defaultDate);
+      setText(draft.text);
+      setLines(draft.lines);
+      setAttachment(draft.attachment);
+      setPreviewUrl(draft.previewUrl);
+      if (draft.previewUrl) setPreviewOpen(true);
+    }
+    setHydrated(true);
+  }, [companyId]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    persistDraftIfDirty(companyId, {
+      dateInput,
+      defaultDate: baselineDate,
+      text,
+      lines,
+      attachment,
+      previewUrl,
+    });
+  }, [
+    hydrated,
+    companyId,
+    dateInput,
+    baselineDate,
+    text,
+    lines,
+    attachment,
+    previewUrl,
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-7xl flex-1 px-6 py-8">

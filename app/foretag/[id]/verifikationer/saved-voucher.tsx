@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { formatOre } from "@/lib/money";
 import { UNDERLAG_ACCEPT, validateUnderlagMeta } from "@/lib/underlag";
 import type { VoucherDetail } from "@/lib/vouchers";
 import { attachVoucherUnderlag } from "./actions";
 import { UnderlagPreview } from "./underlag-preview";
+import { setCardTarget } from "./voucher-draft";
 
 const headerButtonClass =
   "h-8 border border-neutral-300 bg-white px-3 text-sm text-neutral-800 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40";
@@ -31,6 +32,10 @@ export function SavedVoucher({
   );
   const [attachment, setAttachment] = useState(voucher.attachment);
   const [previewOpen, setPreviewOpen] = useState(Boolean(voucher.attachment));
+
+  useEffect(() => {
+    setCardTarget(companyId, { kind: "saved", id: voucher.id });
+  }, [companyId, voucher.id]);
 
   const previewSrc = attachment
     ? `/foretag/${companyId}/verifikationer/${voucher.id}/underlag`
