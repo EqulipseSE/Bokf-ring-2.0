@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { ORGNR_PATTERN } from "@/lib/organisationsnummer";
+import { AccountPlanEditor } from "./account-plan-editor";
 import { createCompany, type CreateCompanyState } from "./actions";
 
 export function CompanyForm() {
@@ -48,6 +49,8 @@ export function CompanyForm() {
         />
         <p className="text-xs text-neutral-400">Format: NNNNNN-NNNN</p>
       </div>
+
+      <AccountPlanEditor />
 
       {state?.error && (
         <p role="alert" className="text-sm text-red-700">

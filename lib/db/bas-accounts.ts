@@ -1,24 +1,120 @@
-/** Vanliga BAS-konton som räcker för löpande bokföring i första steget. */
-export const BAS_ACCOUNTS: ReadonlyArray<{
+/**
+ * Hela BAS 2026-kontoplanen (kontonummer + namn).
+ *
+ * Källa: BAS-kontogruppen i Stockholm AB, officiell kontotabell
+ * `BAS_kontoplan_2026_v2.xlsx` (gratis nedladdning på https://www.bas.se/kontoplaner/).
+ * Extraherad till data/bas-2026.json — 1 282 konton, nummer 1010–8999.
+ */
+import rawAccounts from "../../data/bas-2026.json";
+
+export const BAS_YEAR = 2026;
+
+export type AccountDraft = {
   number: string;
   name: string;
-  vatCode: string | null;
-}> = [
-  { number: "1510", name: "Kundfordringar", vatCode: null },
-  { number: "1910", name: "Kassa", vatCode: null },
-  { number: "1930", name: "Företagskonto", vatCode: null },
-  { number: "2010", name: "Eget kapital", vatCode: null },
-  { number: "2440", name: "Leverantörsskulder", vatCode: null },
-  { number: "2611", name: "Utgående moms 25 %", vatCode: "U25" },
-  { number: "2641", name: "Ingående moms 25 %", vatCode: "I25" },
-  { number: "3001", name: "Försäljning av varor 25 %", vatCode: "U25" },
-  { number: "3011", name: "Försäljning av tjänster 25 %", vatCode: "U25" },
-  { number: "4010", name: "Inköp av varor 25 %", vatCode: "I25" },
-  { number: "5010", name: "Lokalhyra", vatCode: null },
-  { number: "6110", name: "Kontorsmaterial", vatCode: null },
-  { number: "6570", name: "Bankkostnader", vatCode: null },
-  { number: "6990", name: "Övriga externa kostnader", vatCode: null },
-];
+};
+
+export const BAS_ACCOUNTS: readonly AccountDraft[] = rawAccounts;
 
 export const DEFAULT_SERIES_LETTER = "A";
 export const DEFAULT_SERIES_DESCRIPTION = "Verifikationsserie A";
+
+export const ACCOUNT_NUMBER_PATTERN = /^\d{4}$/;
+export const MAX_CHART_ACCOUNTS = 2500;
+
+export function matchesAccountQuery(
+  account: { number: string; name: string },
+  query: string
+): boolean {
+  const q = query.trim().toLocaleLowerCase("sv");
+  if (!q) return true;
+  return (
+    account.number.includes(q) ||
+    account.name.toLocaleLowerCase("sv").includes(q)
+  );
+}
+
+export function parseAccountDrafts(
+  raw: string
+): { accounts: AccountDraft[] } | { error: string } {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { error: "Kontoplanen kunde inte läsas." };
+  }
+  if (!Array.isArray(parsed)) {
+    return { error: "Kontoplanen är ogiltig." };
+  }
+  if (parsed.length === 0) {
+    return { error: "Kontoplanen måste innehålla minst ett konto." };
+  }
+  if (parsed.length > MAX_CHART_ACCOUNTS) {
+    return { error: "Kontoplanen innehåller för många konton." };
+  }
+
+  const seen = new Set<string>();
+  const accounts: AccountDraft[] = [];
+  for (const item of parsed) {
+    if (!item || typeof item !== "object") {
+      return { error: "Kontoplanen innehåller en ogiltig rad." };
+    }
+    const number = String(
+      (item as { number?: unknown }).number ?? ""
+    ).trim();
+    const name = String((item as { name?: unknown }).name ?? "").trim();
+    if (!ACCOUNT_NUMBER_PATTERN.test(number)) {
+      return {
+        error: `Kontonumret ${number || "saknas"} måste vara fyra siffror.`,
+      };
+    }
+    if (!name) {
+      return { error: `Kontot ${number} saknar namn.` };
+    }
+    if (name.length > 200) {
+      return { error: `Kontonamnet på ${number} är för långt.` };
+    }
+    if (seen.has(number)) {
+      return { error: `Kontonumret ${number} används mer än en gång.` };
+    }
+    seen.add(number);
+    accounts.push({ number, name });
+  }
+
+  accounts.sort((a, b) => a.number.localeCompare(b.number, "sv"));
+  return { accounts };
+}
+
+/** Gissar default-momskod från BAS-namn. Saknas tydlig ledtråd lämnas fältet tomt. */
+export function defaultVatCode(number: string, name: string): string | null {
+  const lower = name.toLocaleLowerCase("sv");
+  const rate = lower.includes("25 %") || lower.includes("25%")
+    ? "25"
+    : lower.includes("12 %") || lower.includes("12%")
+      ? "12"
+      : lower.includes("6 %") || lower.includes("6%")
+        ? "6"
+        : null;
+
+  if (number.startsWith("26")) {
+    if (lower.includes("redovisningskonto") || lower.includes("punktskatt")) {
+      return null;
+    }
+    if (lower.includes("ingående")) {
+      return rate ? `I${rate}` : "I25";
+    }
+    if (lower.includes("utgående")) {
+      return rate ? `U${rate}` : null;
+    }
+    return null;
+  }
+
+  if (!rate) return null;
+  if (number.startsWith("3") && lower.includes("försäljning")) {
+    return `U${rate}`;
+  }
+  if (number.startsWith("4") && lower.includes("inköp")) {
+    return `I${rate}`;
+  }
+  return null;
+}

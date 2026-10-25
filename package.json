@@ -9,7 +9,9 @@
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "create-user": "tsx scripts/create-user.ts"
+    "create-user": "tsx scripts/create-user.ts",
+    "upgrade-accounts": "tsx scripts/upgrade-company-accounts.ts",
+    "test": "tsx --test lib/db/bas-accounts.test.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

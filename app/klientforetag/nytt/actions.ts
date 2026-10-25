@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { parseAccountDrafts } from "@/lib/db/bas-accounts";
 import { companies } from "@/lib/db/schema";
 import { seedCompanyBooks } from "@/lib/db/seed-company-books";
 import { isValidOrgNumber } from "@/lib/organisationsnummer";
@@ -18,6 +19,9 @@ export async function createCompany(
 
   const name = String(formData.get("name") ?? "").trim();
   const orgNumber = String(formData.get("orgNumber") ?? "").trim();
+  const parsedAccounts = parseAccountDrafts(
+    String(formData.get("accounts") ?? "")
+  );
 
   if (!name) {
     return { error: "Fyll i företagets namn." };
@@ -27,6 +31,9 @@ export async function createCompany(
       error: "Organisationsnumret ska ha formatet NNNNNN-NNNN, t.ex. 556036-0793.",
     };
   }
+  if ("error" in parsedAccounts) {
+    return { error: parsedAccounts.error };
+  }
 
   try {
     await db.transaction(async (tx) => {
@@ -34,7 +41,7 @@ export async function createCompany(
         .insert(companies)
         .values({ name, orgNumber })
         .returning({ id: companies.id });
-      await seedCompanyBooks(tx, company.id);
+      await seedCompanyBooks(tx, company.id, parsedAccounts.accounts);
     });
   } catch (err) {
     // 23505 = unique_violation i Postgres (organisationsnumret finns redan).

@@ -4,15 +4,18 @@ import {
   BAS_ACCOUNTS,
   DEFAULT_SERIES_DESCRIPTION,
   DEFAULT_SERIES_LETTER,
+  defaultVatCode,
+  type AccountDraft,
 } from "@/lib/db/bas-accounts";
 import { accounts, voucherSeries } from "@/lib/db/schema";
 
 type BooksExecutor = Pick<typeof db, "insert" | "select">;
 
-/** Lägger in serie A och en användbar BAS-kontoplan för ett företag. */
+/** Lägger in serie A och given kontoplan (default: hela BAS 2026). */
 export async function seedCompanyBooks(
   tx: BooksExecutor,
-  companyId: string
+  companyId: string,
+  accountList: readonly AccountDraft[] = BAS_ACCOUNTS
 ): Promise<void> {
   await tx.insert(voucherSeries).values({
     companyId,
@@ -22,11 +25,11 @@ export async function seedCompanyBooks(
   });
 
   await tx.insert(accounts).values(
-    BAS_ACCOUNTS.map((account) => ({
+    accountList.map((account) => ({
       companyId,
       number: account.number,
       name: account.name,
-      vatCode: account.vatCode,
+      vatCode: defaultVatCode(account.number, account.name),
       active: true,
     }))
   );
@@ -34,7 +37,7 @@ export async function seedCompanyBooks(
 
 /**
  * Säkerställer att företaget har kontoplan och serie A.
- * Används både när ett företag skapas och när ett äldre företag öppnas.
+ * Företag utan konton får hela BAS. Befintliga korta listor lämnas orörda.
  */
 export async function ensureCompanyBooks(companyId: string): Promise<void> {
   const existing = await db
@@ -68,7 +71,7 @@ export async function ensureCompanyBooks(companyId: string): Promise<void> {
           companyId,
           number: account.number,
           name: account.name,
-          vatCode: account.vatCode,
+          vatCode: defaultVatCode(account.number, account.name),
           active: true,
         }))
       );
