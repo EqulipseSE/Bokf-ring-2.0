@@ -105,7 +105,7 @@ export function CompanyMenu({
       {showVoucherSubmenu && submenu ? (
         <nav
           aria-label="Verifikationer"
-          className="flex flex-wrap items-stretch gap-0.5 border-t border-neutral-300 bg-neutral-200 px-5 py-2"
+          className="flex flex-wrap items-stretch gap-0.5 border-t border-neutral-400 bg-neutral-400 px-5 py-2"
         >
           <SubmenuLink
             href={voucherBase}
@@ -121,7 +121,7 @@ export function CompanyMenu({
           />
           <span
             aria-hidden
-            className="mx-1.5 my-1 w-px self-stretch bg-neutral-300"
+            className="mx-1.5 my-1 w-px self-stretch bg-neutral-500"
           />
           <SubmenuLink
             href={`${voucherBase}/ny`}
