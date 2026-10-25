@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { logout } from "@/app/logga-in/actions";
 import { MenuIconSvg } from "./menu-icon";
-import { groupIdForPath, menuGroups, type MenuItem } from "./menu";
+import { groupIdForPath, itemHrefIsCurrent, menuGroups, type MenuItem } from "./menu";
 
 export function CompanyMenu({
   companyId,
@@ -88,7 +88,7 @@ function ToolbarItem({
   pathname: string;
 }) {
   const className = toolbarClass(
-    "href" in item && item.href === pathname
+    "href" in item && itemHrefIsCurrent(item.href, pathname)
   );
 
   if ("action" in item) {
@@ -102,7 +102,7 @@ function ToolbarItem({
     );
   }
 
-  const current = pathname === item.href;
+  const current = itemHrefIsCurrent(item.href, pathname);
   return (
     <Link
       href={item.href}
