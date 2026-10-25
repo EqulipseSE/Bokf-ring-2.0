@@ -10,6 +10,7 @@ type AccountSearchProps = {
   onQueryChange: (query: string) => void;
   onSelect: (account: Account | null) => void;
   onCommit: () => void;
+  onFocusLine?: () => void;
   inputRef?: (el: HTMLInputElement | null) => void;
 };
 
@@ -20,6 +21,7 @@ export function AccountSearch({
   onQueryChange,
   onSelect,
   onCommit,
+  onFocusLine,
   inputRef,
 }: AccountSearchProps) {
   const listId = useId();
@@ -68,7 +70,10 @@ export function AccountSearch({
           setHighlight(0);
           setOpen(true);
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          setOpen(true);
+          onFocusLine?.();
+        }}
         onBlur={() => {
           window.setTimeout(() => setOpen(false), 120);
         }}

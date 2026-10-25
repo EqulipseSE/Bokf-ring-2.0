@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { DEFAULT_SERIES_LETTER } from "@/lib/db/bas-accounts";
 import { ensureCompanyBooks } from "@/lib/db/seed-company-books";
@@ -8,6 +8,7 @@ import { voucherNumberLabel } from "@/lib/money";
 import {
   accounts,
   users,
+  voucherAttachments,
   voucherLines,
   voucherSeries,
   vouchers,
@@ -39,6 +40,7 @@ export type VoucherDetail = {
   registeredByName: string;
   lines: {
     lineNumber: number;
+    accountId: string;
     accountNumber: string;
     accountName: string;
     debit: number;
@@ -47,6 +49,10 @@ export type VoucherDetail = {
   }[];
   debitOre: number;
   creditOre: number;
+  attachment: {
+    originalName: string;
+    mimeType: string;
+  } | null;
 };
 
 export async function countCompanySeries(companyId: string): Promise<number> {
@@ -147,9 +153,19 @@ export async function getVoucher(
 
   if (!header) return null;
 
+  const [attachment] = await db
+    .select({
+      originalName: voucherAttachments.originalName,
+      mimeType: voucherAttachments.mimeType,
+    })
+    .from(voucherAttachments)
+    .where(eq(voucherAttachments.voucherId, header.id))
+    .limit(1);
+
   const lines = await db
     .select({
       lineNumber: voucherLines.lineNumber,
+      accountId: voucherLines.accountId,
       accountNumber: accounts.number,
       accountName: accounts.name,
       debit: voucherLines.debit,
@@ -176,5 +192,32 @@ export async function getVoucher(
     lines,
     debitOre,
     creditOre,
+    attachment: attachment ?? null,
   };
+}
+
+/** Kontosaldo i öre från sparade verifikationer, ev. exklusive en pågående. */
+export async function getAccountBalances(
+  companyId: string,
+  excludeVoucherId?: string
+): Promise<Record<string, number>> {
+  const rows = await db
+    .select({
+      accountId: voucherLines.accountId,
+      saldoOre: sql<number>`coalesce(sum(${voucherLines.debit} - ${voucherLines.credit}), 0)`,
+    })
+    .from(voucherLines)
+    .innerJoin(vouchers, eq(voucherLines.voucherId, vouchers.id))
+    .where(
+      excludeVoucherId
+        ? and(eq(vouchers.companyId, companyId), ne(vouchers.id, excludeVoucherId))
+        : eq(vouchers.companyId, companyId)
+    )
+    .groupBy(voucherLines.accountId);
+
+  const balances: Record<string, number> = {};
+  for (const row of rows) {
+    balances[row.accountId] = Number(row.saldoOre);
+  }
+  return balances;
 }

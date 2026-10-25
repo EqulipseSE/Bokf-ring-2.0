@@ -11,6 +11,7 @@ import { DEFAULT_SERIES_LETTER } from "@/lib/db/bas-accounts";
 import { ensureCompanyBooks } from "@/lib/db/seed-company-books";
 import { accounts, voucherLines, voucherSeries, vouchers } from "@/lib/db/schema";
 import { voucherNumberLabel } from "@/lib/money";
+import { persistVoucherUnderlag } from "@/lib/voucher-files";
 import { parseVoucherDate, todayIsoDate } from "@/lib/voucher-date";
 import { LAST_VOUCHER_DATE_COOKIE, countCompanySeries } from "@/lib/vouchers";
 
@@ -25,10 +26,21 @@ export type SaveVoucherInput = {
   date: string;
   text: string;
   lines: SaveVoucherLineInput[];
+  attachment?: File | null;
 };
 
 export type SaveVoucherResult =
-  | { ok: true; numberLabel: string; nextNumberLabel: string }
+  | {
+      ok: true;
+      voucherId: string;
+      numberLabel: string;
+      nextNumberLabel: string;
+      attachmentError?: string;
+    }
+  | { ok: false; error: string };
+
+export type AttachUnderlagResult =
+  | { ok: true; fileName: string }
   | { ok: false; error: string };
 
 export async function saveVoucher(
@@ -161,7 +173,7 @@ export async function saveVoucher(
         })
       );
 
-      return { letter: series.letter, number };
+      return { id: voucher.id, letter: series.letter, number };
     });
 
     revalidatePath(`/foretag/${company.id}/verifikationer`);
@@ -172,14 +184,25 @@ export async function saveVoucher(
       maxAge: 60 * 60 * 24 * 365,
     });
     const seriesCount = await countCompanySeries(company.id);
+    let attachmentError: string | undefined;
+    if (input.attachment && input.attachment.size > 0) {
+      const stored = await persistVoucherUnderlag(
+        company.id,
+        saved.id,
+        input.attachment
+      );
+      if (!stored.ok) attachmentError = stored.error;
+    }
     return {
       ok: true,
+      voucherId: saved.id,
       numberLabel: voucherNumberLabel(saved.letter, saved.number, seriesCount),
       nextNumberLabel: voucherNumberLabel(
         saved.letter,
         saved.number + 1,
         seriesCount
       ),
+      attachmentError,
     };
   } catch (err) {
     if (err instanceof Error && err.message === "ACCOUNT") {
@@ -193,4 +216,25 @@ export async function saveVoucher(
     }
     throw err;
   }
+}
+
+export async function attachVoucherUnderlag(
+  companyId: string,
+  voucherId: string,
+  file: File
+): Promise<AttachUnderlagResult> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/logga-in");
+
+  const company = await getCompany(companyId);
+  if (!company) {
+    return { ok: false, error: "Företaget finns inte." };
+  }
+
+  const stored = await persistVoucherUnderlag(company.id, voucherId, file);
+  if (!stored.ok) return stored;
+
+  revalidatePath(`/foretag/${company.id}/verifikationer`);
+  revalidatePath(`/foretag/${company.id}/verifikationer/${voucherId}`);
+  return { ok: true, fileName: stored.stored.originalName };
 }

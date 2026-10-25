@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { todayIsoDate } from "@/lib/voucher-date";
 import {
   LAST_VOUCHER_DATE_COOKIE,
+  getAccountBalances,
   listCompanyAccounts,
   peekNextVoucherLabel,
 } from "@/lib/vouchers";
@@ -18,6 +19,7 @@ export default async function NyVerifikationPage({
   const { id } = await params;
   const accounts = await listCompanyAccounts(id);
   const nextNumberLabel = await peekNextVoucherLabel(id);
+  const accountBalances = await getAccountBalances(id);
   const cookieStore = await cookies();
   const storedDate = cookieStore.get(LAST_VOUCHER_DATE_COOKIE)?.value;
   const defaultDate =
@@ -32,6 +34,7 @@ export default async function NyVerifikationPage({
         accounts={accounts}
         defaultDate={defaultDate}
         nextNumberLabel={nextNumberLabel}
+        accountBalances={accountBalances}
       />
     </main>
   );

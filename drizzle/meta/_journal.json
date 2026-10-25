@@ -22,6 +22,13 @@
       "when": 1792934019701,
       "tag": "0002_square_human_torch",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792937807169,
+      "tag": "0003_lethal_morlun",
+      "breakpoints": true
     }
   ]
 }
