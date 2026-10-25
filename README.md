@@ -47,7 +47,9 @@ och namn från BAS-kontogruppens officiella kontotabell
 lägga till, ta bort eller byta namn på konton innan du sparar. Under
 **Bokföring → Kontoplan** visas företagets faktiska lista. En kryssruta till vänster
 om kontonumret slår av och på kontot (inaktiva syns inte när du bokför). Till höger
-visas ingående och utgående saldo. Nya företag får alla BAS-konton aktiva.
+visas ingående och utgående saldo; klicka på beloppet för att ändra. Skillnaden
+bokförs som en verifikation mot ett motkonto (ingående = IB-post, utgående = bokning
+i perioden). Nya företag får alla BAS-konton aktiva.
 
 Befintliga företag som skapades med den korta 14-kontolistan lämnas orörda. För att
 komplettera med saknade BAS-konton (befintliga nummer och namn ändras inte):

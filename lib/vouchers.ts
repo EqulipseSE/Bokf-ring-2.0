@@ -201,6 +201,25 @@ export async function getAccountBalances(
   companyId: string,
   excludeVoucherId?: string
 ): Promise<Record<string, number>> {
+  return sumAccountBalances(
+    excludeVoucherId
+      ? and(eq(vouchers.companyId, companyId), ne(vouchers.id, excludeVoucherId))
+      : eq(vouchers.companyId, companyId)
+  );
+}
+
+/** Ingående saldo: bara verifikationer markerade som IB. */
+export async function getOpeningBalances(
+  companyId: string
+): Promise<Record<string, number>> {
+  return sumAccountBalances(
+    and(eq(vouchers.companyId, companyId), eq(vouchers.isOpening, true))
+  );
+}
+
+async function sumAccountBalances(
+  where: ReturnType<typeof and> | ReturnType<typeof eq>
+): Promise<Record<string, number>> {
   const rows = await db
     .select({
       accountId: voucherLines.accountId,
@@ -208,11 +227,7 @@ export async function getAccountBalances(
     })
     .from(voucherLines)
     .innerJoin(vouchers, eq(voucherLines.voucherId, vouchers.id))
-    .where(
-      excludeVoucherId
-        ? and(eq(vouchers.companyId, companyId), ne(vouchers.id, excludeVoucherId))
-        : eq(vouchers.companyId, companyId)
-    )
+    .where(where)
     .groupBy(voucherLines.accountId);
 
   const balances: Record<string, number> = {};

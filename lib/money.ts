@@ -6,6 +6,20 @@ export function parseAmountToOre(value: string): number | null {
   return Math.round(Number(trimmed) * 100);
 }
 
+/** Som parseAmountToOre men tillåter minus (saldo kan vara kredit). */
+export function parseSignedAmountToOre(value: string): number | null {
+  const trimmed = value
+    .trim()
+    .replace(/\s/g, "")
+    .replace(/[−–]/g, "-")
+    .replace(",", ".");
+  if (!trimmed) return 0;
+  const match = /^([+-])?(\d+(\.\d{1,2})?)$/.exec(trimmed);
+  if (!match) return null;
+  const ore = Math.round(Number(match[2]) * 100);
+  return match[1] === "-" ? -ore : ore;
+}
+
 export function formatOre(ore: number): string {
   return (ore / 100).toLocaleString("sv-SE", {
     minimumFractionDigits: 2,

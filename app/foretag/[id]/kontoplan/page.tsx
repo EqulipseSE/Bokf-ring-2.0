@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getCompany, listCompanyChart } from "@/lib/company";
-import { getAccountBalances } from "@/lib/vouchers";
+import { getAccountBalances, getOpeningBalances, listCompanyAccounts } from "@/lib/vouchers";
 import { AccountChart } from "./account-chart";
 
 export const metadata: Metadata = {
@@ -15,9 +15,11 @@ export default async function KontoplanPage({
   const company = await getCompany(id);
   if (!company) notFound();
 
-  const [accounts, balances] = await Promise.all([
+  const [accounts, opening, closing, searchable] = await Promise.all([
     listCompanyChart(id),
+    getOpeningBalances(id),
     getAccountBalances(id),
+    listCompanyAccounts(id),
   ]);
 
   return (
@@ -27,18 +29,19 @@ export default async function KontoplanPage({
       </h1>
       <p className="mt-1 text-sm text-neutral-500">
         Företagets konton. Avmarkera konton du inte vill se vid kontering.
+        Klicka på ett saldo för att ändra — skillnaden bokförs mot ett motkonto.
       </p>
       <div className="mt-8">
         <AccountChart
           companyId={company.id}
+          searchableAccounts={searchable}
           accounts={accounts.map((account) => ({
             id: account.id,
             number: account.number,
             name: account.name,
             active: account.active,
-            // Ingående är 0 tills räkenskapsår/IB finns. Utgående = rörelser.
-            openingOre: 0,
-            closingOre: balances[account.id] ?? 0,
+            openingOre: opening[account.id] ?? 0,
+            closingOre: closing[account.id] ?? 0,
           }))}
         />
       </div>

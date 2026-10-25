@@ -29,6 +29,13 @@
       "when": 1792937807169,
       "tag": "0003_lethal_morlun",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792948056299,
+      "tag": "0004_purple_major_mapleleaf",
+      "breakpoints": true
     }
   ]
 }

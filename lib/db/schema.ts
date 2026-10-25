@@ -98,6 +98,8 @@ export const vouchers = pgTable(
       .defaultNow(),
     status: text("status").notNull().default("registrerad"),
     correctsVoucherId: uuid("corrects_voucher_id"),
+    // Ingående balans / IB-korrigering. Vanliga periodbokningar är false.
+    isOpening: boolean("is_opening").notNull().default(false),
   },
   (t) => [
     unique("vouchers_series_number_unique").on(t.seriesId, t.number),
