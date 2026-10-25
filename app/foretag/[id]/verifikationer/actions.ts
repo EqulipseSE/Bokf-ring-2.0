@@ -13,12 +13,14 @@ import { accounts, voucherLines, voucherSeries, vouchers } from "@/lib/db/schema
 import { voucherNumberLabel } from "@/lib/money";
 import { persistVoucherUnderlag } from "@/lib/voucher-files";
 import { parseVoucherDate, todayIsoDate } from "@/lib/voucher-date";
+import { parseVatCode } from "@/lib/vat-codes";
 import { LAST_VOUCHER_DATE_COOKIE, countCompanySeries } from "@/lib/vouchers";
 
 export type SaveVoucherLineInput = {
   accountId: string;
   debitOre: number;
   creditOre: number;
+  vatCode?: string | null;
 };
 
 export type SaveVoucherInput = {
@@ -96,6 +98,10 @@ export async function saveVoucher(
         error: "Varje rad måste ha belopp i antingen debet eller kredit.",
       };
     }
+    const parsedVat = parseVatCode(line.vatCode);
+    if (!parsedVat.ok) {
+      return { ok: false, error: parsedVat.error };
+    }
     debitSum += line.debitOre;
     creditSum += line.creditOre;
   }
@@ -164,13 +170,19 @@ export async function saveVoucher(
       await tx.insert(voucherLines).values(
         lines.map((line, index) => {
           const account = accountById.get(line.accountId);
+          const parsedVat = parseVatCode(line.vatCode);
+          const vatCode = parsedVat.ok
+            ? line.vatCode === undefined
+              ? (account?.vatCode ?? null)
+              : parsedVat.code
+            : (account?.vatCode ?? null);
           return {
             voucherId: voucher.id,
             lineNumber: index + 1,
             accountId: line.accountId,
             debit: line.debitOre,
             credit: line.creditOre,
-            vatCode: account?.vatCode ?? null,
+            vatCode,
           };
         })
       );

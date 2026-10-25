@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { formatOre } from "@/lib/money";
+import { vatCodeName } from "@/lib/vat-codes";
 import { UNDERLAG_ACCEPT, validateUnderlagMeta } from "@/lib/underlag";
 import type { VoucherDetail } from "@/lib/vouchers";
 import { attachVoucherUnderlag } from "./actions";
@@ -146,6 +147,7 @@ export function SavedVoucher({
                 <tr className="border-b border-neutral-200 bg-neutral-100 text-left text-xs font-medium text-neutral-600">
                   <th className="w-24 px-2 py-2">Konto</th>
                   <th className="px-2 py-2">Benämning</th>
+                  <th className="w-20 px-2 py-2">Momskod</th>
                   <th className="w-32 px-2 py-2 text-right">Debet</th>
                   <th className="w-32 px-2 py-2 text-right">Kredit</th>
                 </tr>
@@ -167,6 +169,12 @@ export function SavedVoucher({
                         {line.accountNumber}
                       </td>
                       <td className="px-2 py-2 text-neutral-700">{line.accountName}</td>
+                      <td
+                        className="px-2 py-2 font-mono text-neutral-700"
+                        title={vatCodeName(line.vatCode)}
+                      >
+                        {line.vatCode ?? ""}
+                      </td>
                       <td className="px-2 py-2 text-right tabular-nums text-neutral-900">
                         {line.debit > 0 ? formatOre(line.debit) : ""}
                       </td>
@@ -177,7 +185,7 @@ export function SavedVoucher({
                   );
                 })}
                 <tr className="border-t border-neutral-200 bg-neutral-50 text-sm">
-                  <td colSpan={2} className="px-2 py-2 text-neutral-600">
+                  <td colSpan={3} className="px-2 py-2 text-neutral-600">
                     Summa
                   </td>
                   <td className="px-2 py-2 text-right tabular-nums text-neutral-900">

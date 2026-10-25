@@ -15,6 +15,7 @@ import { DEFAULT_SERIES_LETTER } from "@/lib/db/bas-accounts";
 import { ensureCompanyBooks } from "@/lib/db/seed-company-books";
 import { accounts, voucherLines, voucherSeries, vouchers } from "@/lib/db/schema";
 import { voucherNumberLabel } from "@/lib/money";
+import { parseVatCode } from "@/lib/vat-codes";
 import { todayIsoDate } from "@/lib/voucher-date";
 import { countCompanySeries, getAccountBalances, getOpeningBalances } from "@/lib/vouchers";
 
@@ -48,6 +49,41 @@ export async function setAccountActive(
   revalidatePath(`/foretag/${company.id}/kontoplan`);
   revalidatePath(`/foretag/${company.id}/verifikationer/ny`);
   return { ok: true, active: updated.active };
+}
+
+export type SetAccountVatCodeResult =
+  | { ok: true; vatCode: string | null }
+  | { ok: false; error: string };
+
+export async function setAccountVatCode(
+  companyId: string,
+  accountId: string,
+  vatCode: string | null
+): Promise<SetAccountVatCodeResult> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/logga-in");
+
+  const company = await getCompany(companyId);
+  if (!company) {
+    return { ok: false, error: "Företaget finns inte." };
+  }
+
+  const parsed = parseVatCode(vatCode);
+  if (!parsed.ok) return parsed;
+
+  const [updated] = await db
+    .update(accounts)
+    .set({ vatCode: parsed.code })
+    .where(and(eq(accounts.id, accountId), eq(accounts.companyId, company.id)))
+    .returning({ id: accounts.id, vatCode: accounts.vatCode });
+
+  if (!updated) {
+    return { ok: false, error: "Kontot finns inte." };
+  }
+
+  revalidatePath(`/foretag/${company.id}/kontoplan`);
+  revalidatePath(`/foretag/${company.id}/verifikationer/ny`);
+  return { ok: true, vatCode: updated.vatCode };
 }
 
 export type SaveBalanceAdjustmentInput = {

@@ -54,6 +54,7 @@ export const accounts = pgTable(
       .references(() => companies.id, { onDelete: "cascade" }),
     number: text("number").notNull(),
     name: text("name").notNull(),
+    // Systemkod från lib/vat-codes.ts, valfri default vid kontering.
     vatCode: text("vat_code"),
     active: boolean("active").notNull().default(true),
   },

@@ -23,13 +23,14 @@ export default async function KontoplanPage({
   ]);
 
   return (
-    <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
+    <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
       <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">
         Kontoplan
       </h1>
       <p className="mt-1 text-sm text-neutral-500">
         Företagets konton. Avmarkera konton du inte vill se vid kontering.
-        Klicka på ett saldo för att ändra — skillnaden bokförs mot ett motkonto.
+        Välj momskod per konto — den följer med vid kontering. Klicka på ett
+        saldo för att ändra; skillnaden bokförs mot ett motkonto.
       </p>
       <div className="mt-8">
         <AccountChart
@@ -39,6 +40,7 @@ export default async function KontoplanPage({
             id: account.id,
             number: account.number,
             name: account.name,
+            vatCode: account.vatCode,
             active: account.active,
             openingOre: opening[account.id] ?? 0,
             closingOre: closing[account.id] ?? 0,

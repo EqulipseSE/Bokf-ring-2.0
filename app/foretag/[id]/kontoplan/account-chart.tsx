@@ -5,13 +5,15 @@ import { matchesAccountQuery } from "@/lib/db/bas-accounts";
 import type { Account } from "@/lib/db/schema";
 import { formatOre, formatOreInput, parseSignedAmountToOre } from "@/lib/money";
 import type { BalanceKind } from "@/lib/balance-adjustment";
+import { VatCodeSelect } from "@/app/components/vat-code-select";
 import { AccountSearch } from "../verifikationer/account-search";
-import { saveBalanceAdjustment, setAccountActive } from "./actions";
+import { saveBalanceAdjustment, setAccountActive, setAccountVatCode } from "./actions";
 
 type ChartAccount = {
   id: string;
   number: string;
   name: string;
+  vatCode: string | null;
   active: boolean;
   openingOre: number;
   closingOre: number;
@@ -44,11 +46,13 @@ export function AccountChart({
       current,
       update:
         | { type: "active"; id: string; active: boolean }
+        | { type: "vat"; id: string; vatCode: string | null }
         | { type: "balance"; id: string; openingOre: number; closingOre: number }
     ) =>
       current.map((account) => {
         if (account.id !== update.id) return account;
         if (update.type === "active") return { ...account, active: update.active };
+        if (update.type === "vat") return { ...account, vatCode: update.vatCode };
         return {
           ...account,
           openingOre: update.openingOre,
@@ -84,6 +88,23 @@ export function AccountChart({
       const result = await setAccountActive(companyId, account.id, active);
       if (!result.ok) {
         setOptimistic({ type: "active", id: account.id, active: account.active });
+        setError(result.error);
+      }
+    });
+  }
+
+  function setVat(account: ChartAccount, vatCode: string | null) {
+    if (vatCode === (account.vatCode ?? null)) return;
+    setError(null);
+    startTransition(async () => {
+      setOptimistic({ type: "vat", id: account.id, vatCode });
+      const result = await setAccountVatCode(companyId, account.id, vatCode);
+      if (!result.ok) {
+        setOptimistic({
+          type: "vat",
+          id: account.id,
+          vatCode: account.vatCode,
+        });
         setError(result.error);
       }
     });
@@ -172,7 +193,8 @@ export function AccountChart({
       </p>
       <p className="text-xs text-neutral-400">
         Ikryssad = aktiv vid bokföring. Inaktiva syns här men inte i
-        kontosöket. Klicka på ett belopp för att ändra saldo.
+        kontosöket. Momskod följer med vid kontering och kan ändras där.
+        Klicka på ett belopp för att ändra saldo.
       </p>
 
       {error ? (
@@ -190,6 +212,7 @@ export function AccountChart({
               </th>
               <th className="w-24 py-3.5 pr-4 font-medium">Nummer</th>
               <th className="px-4 py-3.5 font-medium">Namn</th>
+              <th className="w-44 px-4 py-3.5 font-medium">Momskod</th>
               <th className="w-36 px-4 py-3.5 text-right font-medium">
                 Ingående saldo
               </th>
@@ -211,6 +234,7 @@ export function AccountChart({
                   canSave={isEditing && canSave}
                   contraAccounts={contraAccounts}
                   onToggle={toggle}
+                  onVatChange={setVat}
                   onStartEdit={startEdit}
                   onDraftChange={(draft) =>
                     setEdit((current) =>
@@ -245,7 +269,7 @@ export function AccountChart({
             {filtered.length === 0 ? (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={6}
                   className="px-4 py-10 text-center text-neutral-500"
                 >
                   Inga konton matchar sökningen.
@@ -267,6 +291,7 @@ function AccountRow({
   canSave,
   contraAccounts,
   onToggle,
+  onVatChange,
   onStartEdit,
   onDraftChange,
   onContraQuery,
@@ -281,6 +306,7 @@ function AccountRow({
   canSave: boolean;
   contraAccounts: Account[];
   onToggle: (account: ChartAccount, active: boolean) => void;
+  onVatChange: (account: ChartAccount, vatCode: string | null) => void;
   onStartEdit: (account: ChartAccount, kind: BalanceKind) => void;
   onDraftChange: (draft: string) => void;
   onContraQuery: (query: string) => void;
@@ -317,6 +343,13 @@ function AccountRow({
         >
           {account.name}
         </td>
+        <td className="px-4 py-2.5">
+          <VatCodeSelect
+            value={account.vatCode ?? ""}
+            ariaLabel={`Momskod ${account.number} ${account.name}`}
+            onChange={(code) => onVatChange(account, code || null)}
+          />
+        </td>
         <td className={`px-4 py-2.5 text-right tabular-nums ${muted}`}>
           <BalanceCell
             label={`Ingående saldo ${account.number}`}
@@ -342,7 +375,7 @@ function AccountRow({
       </tr>
       {showPanel && edit ? (
         <tr className="bg-neutral-50/80">
-          <td colSpan={5} className="px-4 py-3">
+          <td colSpan={6} className="px-4 py-3">
             <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
               <div>
                 <p className="text-xs text-neutral-500">
