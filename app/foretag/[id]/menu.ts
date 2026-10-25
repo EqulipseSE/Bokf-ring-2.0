@@ -7,7 +7,6 @@ export const PLACEHOLDERS = {
   balansrapport: "Balansrapport",
   resultatrapport: "Resultatrapport",
   huvudbok: "Huvudbok",
-  momsrapport: "Momsrapport",
 } as const;
 
 export type PlaceholderSlug = keyof typeof PLACEHOLDERS;
@@ -18,7 +17,7 @@ export function isPlaceholderSlug(value: string): value is PlaceholderSlug {
 
 export function companyHref(
   companyId: string,
-  slug: PlaceholderSlug | "verifikationer" | "kontoplan"
+  slug: PlaceholderSlug | "verifikationer" | "kontoplan" | "momsdeklaration"
 ): string {
   return `/foretag/${companyId}/${slug}`;
 }
@@ -104,6 +103,11 @@ export function menuGroups(companyId: string): MenuGroup[] {
           href: companyHref(companyId, "momskontroll"),
           icon: "percent",
         },
+        {
+          label: "Momsdeklaration",
+          href: companyHref(companyId, "momsdeklaration"),
+          icon: "report",
+        },
         { label: "Kontoplan", href: companyHref(companyId, "kontoplan"), icon: "list" },
         {
           label: "Periodlåsning",
@@ -129,8 +133,8 @@ export function menuGroups(companyId: string): MenuGroup[] {
         },
         { label: "Huvudbok", href: companyHref(companyId, "huvudbok"), icon: "book" },
         {
-          label: "Momsrapport",
-          href: companyHref(companyId, "momsrapport"),
+          label: "Momsdeklaration",
+          href: companyHref(companyId, "momsdeklaration"),
           icon: "report",
         },
       ],

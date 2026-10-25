@@ -1,6 +1,6 @@
 /**
  * Systemlista med vanliga svenska momskoder (Visma-liknande).
- * Koderna mappar senare till momsdeklarationens rutor; här är de bara en lista.
+ * Koppling kod → deklarationsruta finns i lib/vat-declaration.ts.
  */
 export type VatCodeDefinition = {
   code: string;
