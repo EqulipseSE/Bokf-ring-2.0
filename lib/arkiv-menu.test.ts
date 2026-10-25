@@ -33,6 +33,26 @@ describe("menuGroups", () => {
       ["bokforing", "utskrifter"]
     );
   });
+
+  it("lägger momsdeklarationen i Bokföring och Utskrifter", () => {
+    const groups = menuGroups(companyId);
+    const bokforing = groups.find((group) => group.id === "bokforing");
+    const utskrifter = groups.find((group) => group.id === "utskrifter");
+    const href = companyHref(companyId, "momsdeklaration");
+    assert.ok(bokforing?.items.some((item) => item.label === "Momskontroll"));
+    assert.deepEqual(
+      bokforing?.items.find((item) => item.label === "Momsdeklaration"),
+      { label: "Momsdeklaration", href, icon: "report" }
+    );
+    assert.deepEqual(
+      utskrifter?.items.find((item) => item.label === "Momsdeklaration"),
+      { label: "Momsdeklaration", href, icon: "report" }
+    );
+    assert.equal(
+      utskrifter?.items.some((item) => item.label === "Momsrapport"),
+      false
+    );
+  });
 });
 
 describe("isArkivPath", () => {
