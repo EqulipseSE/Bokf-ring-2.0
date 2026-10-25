@@ -1,0 +1,1 @@
+ALTER TABLE "vouchers" ADD COLUMN "is_opening" boolean DEFAULT false NOT NULL;
