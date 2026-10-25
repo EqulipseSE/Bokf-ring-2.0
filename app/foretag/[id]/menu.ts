@@ -1,5 +1,6 @@
 export const PLACEHOLDERS = {
   foretagsinstallningar: "Företagsinställningar",
+  importexport: "Import/export",
   momskontroll: "Momskontroll",
   periodlasning: "Periodlåsning",
   arsavslut: "Årsavslut",
@@ -30,6 +31,7 @@ export type MenuIcon =
   | "buildings"
   | "settings"
   | "logout"
+  | "transfer"
   | "document"
   | "percent"
   | "list"
@@ -42,9 +44,12 @@ export type MenuIcon =
   | "card"
   | "plus";
 
-export type MenuItem =
-  | { label: string; href: string; icon: MenuIcon }
-  | { label: string; action: "logout"; icon: MenuIcon };
+export type MenuItem = {
+  label: string;
+  href: string;
+  icon: MenuIcon;
+  description?: string;
+};
 
 export type MenuGroup = {
   id: string;
@@ -52,21 +57,39 @@ export type MenuGroup = {
   items: MenuItem[];
 };
 
-export function menuGroups(companyId: string): MenuGroup[] {
+export const ARKIV_LABEL = "Arkiv";
+
+export function arkivItems(companyId: string): MenuItem[] {
   return [
     {
-      id: "arkiv",
-      label: "Arkiv",
-      items: [
-        { label: "Byt företag", href: "/klientforetag", icon: "buildings" },
-        {
-          label: "Företagsinställningar",
-          href: companyHref(companyId, "foretagsinstallningar"),
-          icon: "settings",
-        },
-        { label: "Logga ut", action: "logout", icon: "logout" },
-      ],
+      label: "Öppna företag",
+      href: "/klientforetag",
+      icon: "buildings",
+      description: "Gå till listan med klientföretag",
     },
+    {
+      label: "Företagsinställningar",
+      href: companyHref(companyId, "foretagsinstallningar"),
+      icon: "settings",
+      description: "Uppgifter för det här företaget",
+    },
+    {
+      label: "Import/export",
+      href: companyHref(companyId, "importexport"),
+      icon: "transfer",
+      description: "SIE-filer kommer i nästa steg",
+    },
+  ];
+}
+
+export function isArkivPath(pathname: string, companyId: string): boolean {
+  return arkivItems(companyId).some((item) =>
+    itemHrefIsCurrent(item.href, pathname)
+  );
+}
+
+export function menuGroups(companyId: string): MenuGroup[] {
+  return [
     {
       id: "bokforing",
       label: "Bokföring",

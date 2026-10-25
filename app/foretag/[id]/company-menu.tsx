@@ -2,16 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useSyncExternalStore } from "react";
-import { logout } from "@/app/logga-in/actions";
+import { useCallback, useRef, useState, useSyncExternalStore } from "react";
 import {
   isOnVerifikationer,
   resolveKortHref,
   verifikationerBase,
   voucherSubmenuState,
 } from "@/lib/voucher-nav";
+import { ArkivDrawer } from "./arkiv-drawer";
 import { MenuIconSvg } from "./menu-icon";
-import { groupIdForPath, itemHrefIsCurrent, menuGroups, type MenuItem } from "./menu";
+import {
+  ARKIV_LABEL,
+  arkivItems,
+  groupIdForPath,
+  itemHrefIsCurrent,
+  menuGroups,
+  type MenuItem,
+} from "./menu";
 import {
   getWorkspace,
   setCardTarget,
@@ -31,6 +38,9 @@ export function CompanyMenu({
   const [picked, setPicked] = useState<{ id: string; path: string } | null>(
     null
   );
+  const [arkivOpen, setArkivOpen] = useState(false);
+  const arkivButtonRef = useRef<HTMLButtonElement>(null);
+  const closeArkiv = useCallback(() => setArkivOpen(false), []);
   const workspace = useSyncExternalStore(
     subscribeVoucherWorkspace,
     () => getWorkspace(companyId),
@@ -42,7 +52,7 @@ export function CompanyMenu({
       ? picked.id
       : (pathGroupId ?? "bokforing");
   const selectedGroup =
-    groups.find((group) => group.id === selectedId) ?? groups[1];
+    groups.find((group) => group.id === selectedId) ?? groups[0];
   const submenu = voucherSubmenuState(pathname, companyId);
   const showVoucherSubmenu =
     selectedGroup.id === "bokforing" && isOnVerifikationer(pathname, companyId);
@@ -63,14 +73,38 @@ export function CompanyMenu({
           >
             Omnio
           </Link>
+          <button
+            ref={arkivButtonRef}
+            type="button"
+            aria-expanded={arkivOpen}
+            aria-haspopup="dialog"
+            aria-pressed={arkivOpen}
+            onClick={() => setArkivOpen((open) => !open)}
+            className={`relative px-3 py-2.5 text-sm transition hover:text-neutral-900 ${
+              arkivOpen
+                ? "font-medium text-neutral-900"
+                : "text-neutral-600"
+            }`}
+          >
+            {ARKIV_LABEL}
+            {arkivOpen ? (
+              <span
+                aria-hidden
+                className="absolute inset-x-3 bottom-0 h-px bg-neutral-900"
+              />
+            ) : null}
+          </button>
           {groups.map((group) => {
-            const isSelected = group.id === selectedGroup.id;
+            const isSelected = group.id === selectedGroup.id && !arkivOpen;
             return (
               <button
                 key={group.id}
                 type="button"
                 aria-pressed={isSelected}
-                onClick={() => setPicked({ id: group.id, path: pathname })}
+                onClick={() => {
+                  setArkivOpen(false);
+                  setPicked({ id: group.id, path: pathname });
+                }}
                 className={`relative px-3 py-2.5 text-sm transition hover:text-neutral-900 ${
                   isSelected
                     ? "font-medium text-neutral-900"
@@ -133,6 +167,13 @@ export function CompanyMenu({
           />
         </nav>
       ) : null}
+
+      <ArkivDrawer
+        open={arkivOpen}
+        onClose={closeArkiv}
+        items={arkivItems(companyId)}
+        returnFocusRef={arkivButtonRef}
+      />
     </header>
   );
 }
@@ -144,27 +185,12 @@ function ToolbarItem({
   item: MenuItem;
   pathname: string;
 }) {
-  const className = toolbarClass(
-    "href" in item && itemHrefIsCurrent(item.href, pathname)
-  );
-
-  if ("action" in item) {
-    return (
-      <form action={logout}>
-        <button type="submit" className={className}>
-          <MenuIconSvg name={item.icon} className="h-6 w-6" />
-          <span>{item.label}</span>
-        </button>
-      </form>
-    );
-  }
-
   const current = itemHrefIsCurrent(item.href, pathname);
   return (
     <Link
       href={item.href}
       aria-current={current ? "page" : undefined}
-      className={className}
+      className={toolbarClass(current)}
     >
       <MenuIconSvg name={item.icon} className="h-6 w-6" />
       <span>{item.label}</span>
