@@ -53,6 +53,27 @@ describe("menuGroups", () => {
       false
     );
   });
+
+  it("behåller Balansrapport och Resultatrapport under Utskrifter", () => {
+    const groups = menuGroups(companyId);
+    const utskrifter = groups.find((group) => group.id === "utskrifter");
+    assert.deepEqual(
+      utskrifter?.items.find((item) => item.label === "Balansrapport"),
+      {
+        label: "Balansrapport",
+        href: companyHref(companyId, "balansrapport"),
+        icon: "scale",
+      }
+    );
+    assert.deepEqual(
+      utskrifter?.items.find((item) => item.label === "Resultatrapport"),
+      {
+        label: "Resultatrapport",
+        href: companyHref(companyId, "resultatrapport"),
+        icon: "chart",
+      }
+    );
+  });
 });
 
 describe("isArkivPath", () => {
