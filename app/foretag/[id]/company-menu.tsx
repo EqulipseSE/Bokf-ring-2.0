@@ -105,7 +105,7 @@ export function CompanyMenu({
       {showVoucherSubmenu && submenu ? (
         <nav
           aria-label="Verifikationer"
-          className="flex flex-wrap items-stretch gap-0.5 border-t border-neutral-200 bg-neutral-200/70 px-5 py-1.5"
+          className="flex flex-wrap items-stretch gap-0.5 border-y border-neutral-400 bg-neutral-300 px-5 py-1"
         >
           <ToolbarItem
             item={{ label: "Lista", href: voucherBase, icon: "list" }}
@@ -156,7 +156,7 @@ function ToolbarItem({
   const current =
     active ?? ("href" in item && itemHrefIsCurrent(item.href, pathname));
   const className = toolbarClass(Boolean(current), compact);
-  const iconClass = compact ? "h-5 w-5" : "h-6 w-6";
+  const iconClass = compact ? "h-4 w-4" : "h-6 w-6";
 
   if ("action" in item) {
     return (
@@ -184,10 +184,10 @@ function ToolbarItem({
 
 function toolbarClass(active: boolean, compact?: boolean): string {
   if (compact) {
-    return `flex min-w-[4.5rem] flex-col items-center gap-1 rounded-md px-2.5 py-1 text-[11px] leading-tight transition ${
+    return `flex min-w-16 flex-col items-center gap-0.5 rounded px-2 py-0.5 text-[10px] leading-tight transition ${
       active
-        ? "bg-white font-medium text-neutral-900 shadow-sm ring-1 ring-neutral-200"
-        : "text-neutral-600 hover:bg-white hover:text-neutral-900"
+        ? "bg-white font-medium text-neutral-900 shadow-sm ring-1 ring-neutral-300"
+        : "text-neutral-700 hover:bg-white/80 hover:text-neutral-900"
     }`;
   }
   return `flex min-w-24 flex-col items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs transition ${
