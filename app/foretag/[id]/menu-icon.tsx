@@ -81,6 +81,17 @@ const PATHS: Record<MenuIcon, ReactNode> = {
       <path d="M15 11.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
     </>
   ),
+  card: (
+    <>
+      <rect x="4" y="5" width="16" height="14" rx="1.5" />
+      <path d="M8 9h8M8 13h5" />
+    </>
+  ),
+  plus: (
+    <>
+      <path d="M12 6v12M6 12h12" />
+    </>
+  ),
 };
 
 export function MenuIconSvg({

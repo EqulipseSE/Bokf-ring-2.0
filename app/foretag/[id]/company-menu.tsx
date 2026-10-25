@@ -2,10 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { logout } from "@/app/logga-in/actions";
+import {
+  isOnVerifikationer,
+  resolveKortHref,
+  verifikationerBase,
+  voucherSubmenuState,
+} from "@/lib/voucher-nav";
 import { MenuIconSvg } from "./menu-icon";
 import { groupIdForPath, itemHrefIsCurrent, menuGroups, type MenuItem } from "./menu";
+import {
+  getWorkspace,
+  setCardTarget,
+  subscribeVoucherWorkspace,
+} from "./verifikationer/voucher-draft";
 
 export function CompanyMenu({
   companyId,
@@ -20,6 +31,11 @@ export function CompanyMenu({
   const [picked, setPicked] = useState<{ id: string; path: string } | null>(
     null
   );
+  const workspace = useSyncExternalStore(
+    subscribeVoucherWorkspace,
+    () => getWorkspace(companyId),
+    () => getWorkspace(companyId)
+  );
 
   const selectedId =
     picked && picked.path === pathname
@@ -27,6 +43,15 @@ export function CompanyMenu({
       : (pathGroupId ?? "bokforing");
   const selectedGroup =
     groups.find((group) => group.id === selectedId) ?? groups[1];
+  const submenu = voucherSubmenuState(pathname, companyId);
+  const showVoucherSubmenu =
+    selectedGroup.id === "bokforing" && isOnVerifikationer(pathname, companyId);
+  const kortHref = resolveKortHref({
+    companyId,
+    hasDirtyDraft: workspace.draft !== null,
+    target: workspace.target,
+  });
+  const voucherBase = verifikationerBase(companyId);
 
   return (
     <header className="border-b border-neutral-200 bg-white">
@@ -76,6 +101,38 @@ export function CompanyMenu({
           <ToolbarItem key={item.label} item={item} pathname={pathname} />
         ))}
       </nav>
+
+      {showVoucherSubmenu && submenu ? (
+        <nav
+          aria-label="Verifikationer"
+          className="flex flex-wrap items-stretch gap-1 border-t border-neutral-100 bg-neutral-50 px-5 py-2.5"
+        >
+          <ToolbarItem
+            item={{ label: "Lista", href: voucherBase, icon: "list" }}
+            pathname={pathname}
+            active={submenu.lista}
+          />
+          <ToolbarItem
+            item={{ label: "Kort", href: kortHref, icon: "card" }}
+            pathname={pathname}
+            active={submenu.kort}
+          />
+          <span
+            aria-hidden
+            className="mx-2 my-1 w-px self-stretch bg-neutral-200"
+          />
+          <ToolbarItem
+            item={{
+              label: "Ny verifikation",
+              href: `${voucherBase}/ny`,
+              icon: "plus",
+            }}
+            pathname={pathname}
+            active={submenu.ny}
+            onNavigate={() => setCardTarget(companyId, { kind: "draft" })}
+          />
+        </nav>
+      ) : null}
     </header>
   );
 }
@@ -83,13 +140,17 @@ export function CompanyMenu({
 function ToolbarItem({
   item,
   pathname,
+  active,
+  onNavigate,
 }: {
   item: MenuItem;
   pathname: string;
+  active?: boolean;
+  onNavigate?: () => void;
 }) {
-  const className = toolbarClass(
-    "href" in item && itemHrefIsCurrent(item.href, pathname)
-  );
+  const current =
+    active ?? ("href" in item && itemHrefIsCurrent(item.href, pathname));
+  const className = toolbarClass(Boolean(current));
 
   if ("action" in item) {
     return (
@@ -102,11 +163,11 @@ function ToolbarItem({
     );
   }
 
-  const current = itemHrefIsCurrent(item.href, pathname);
   return (
     <Link
       href={item.href}
       aria-current={current ? "page" : undefined}
+      onClick={onNavigate}
       className={className}
     >
       <MenuIconSvg name={item.icon} className="h-6 w-6" />

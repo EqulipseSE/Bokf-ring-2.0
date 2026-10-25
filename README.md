@@ -37,7 +37,8 @@ pnpm dev
 ```
 
 Öppna [http://localhost:3000](http://localhost:3000) och logga in. Välj ett företag och gå till
-**Bokföring → Verifikationer** för att registrera och lista verifikationer.
+**Bokföring → Verifikationer**. Där öppnas en tredje menyrad med **Lista**, **Kort**
+och **Ny verifikation**.
 
 ## Kontoplan (BAS 2026)
 

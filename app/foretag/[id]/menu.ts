@@ -38,7 +38,9 @@ export type MenuIcon =
   | "scale"
   | "chart"
   | "book"
-  | "report";
+  | "report"
+  | "card"
+  | "plus";
 
 export type MenuItem =
   | { label: string; href: string; icon: MenuIcon }

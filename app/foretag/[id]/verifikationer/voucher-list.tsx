@@ -81,7 +81,7 @@ export function VoucherList({
       <div className="rounded-2xl border border-dashed border-neutral-300 bg-white px-6 py-16 text-center">
         <p className="font-medium text-neutral-900">Inga verifikationer ännu</p>
         <p className="mt-1 text-sm text-neutral-500">
-          Registrera den första verifikationen för det här företaget.
+          Välj Ny verifikation i menyn för att registrera den första.
         </p>
         <Link
           href={newHref}
