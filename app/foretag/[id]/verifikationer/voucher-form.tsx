@@ -19,6 +19,7 @@ type VoucherFormProps = {
   companyId: string;
   accounts: Account[];
   defaultDate: string;
+  showSeriesLetter: boolean;
 };
 
 function createLine(): LineDraft {
@@ -55,6 +56,7 @@ export function VoucherForm({
   companyId,
   accounts,
   defaultDate,
+  showSeriesLetter,
 }: VoucherFormProps) {
   const [date, setDate] = useState(defaultDate);
   const [text, setText] = useState("");
@@ -190,7 +192,9 @@ export function VoucherForm({
             Ny verifikation
           </h1>
           <p className="mt-1 text-sm text-neutral-500">
-            Serie A · numret tilldelas när du sparar
+            {showSeriesLetter
+              ? "Serie A · numret tilldelas när du sparar"
+              : "Numret tilldelas när du sparar"}
           </p>
         </div>
         {savedLabel ? (

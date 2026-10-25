@@ -11,7 +11,7 @@ import { DEFAULT_SERIES_LETTER } from "@/lib/db/bas-accounts";
 import { ensureCompanyBooks } from "@/lib/db/seed-company-books";
 import { accounts, voucherLines, voucherSeries, vouchers } from "@/lib/db/schema";
 import { voucherNumberLabel } from "@/lib/money";
-import { LAST_VOUCHER_DATE_COOKIE } from "@/lib/vouchers";
+import { LAST_VOUCHER_DATE_COOKIE, countCompanySeries } from "@/lib/vouchers";
 
 export type SaveVoucherLineInput = {
   accountId: string;
@@ -169,9 +169,10 @@ export async function saveVoucher(
       path: `/foretag/${company.id}`,
       maxAge: 60 * 60 * 24 * 365,
     });
+    const seriesCount = await countCompanySeries(company.id);
     return {
       ok: true,
-      numberLabel: voucherNumberLabel(saved.letter, saved.number),
+      numberLabel: voucherNumberLabel(saved.letter, saved.number, seriesCount),
     };
   } catch (err) {
     if (err instanceof Error && err.message === "ACCOUNT") {
@@ -181,7 +182,7 @@ export async function saveVoucher(
       };
     }
     if (err instanceof Error && err.message === "SERIES") {
-      return { ok: false, error: "Verifikationsserie A saknas." };
+      return { ok: false, error: "Verifikationsserie saknas." };
     }
     throw err;
   }

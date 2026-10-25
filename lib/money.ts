@@ -18,6 +18,11 @@ export function formatOreInput(ore: number): string {
   return (ore / 100).toFixed(2).replace(".", ",");
 }
 
-export function voucherNumberLabel(letter: string, number: number): string {
-  return `${letter}${number}`;
+/** En serie: bara löpnummer. Flera serier: A1, B1, … */
+export function voucherNumberLabel(
+  letter: string,
+  number: number,
+  seriesCount: number
+): string {
+  return seriesCount > 1 ? `${letter}${number}` : String(number);
 }

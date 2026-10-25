@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { LAST_VOUCHER_DATE_COOKIE, listCompanyAccounts } from "@/lib/vouchers";
+import {
+  LAST_VOUCHER_DATE_COOKIE,
+  countCompanySeries,
+  listCompanyAccounts,
+} from "@/lib/vouchers";
 import { VoucherForm } from "../voucher-form";
 
 export const metadata: Metadata = {
@@ -12,6 +16,7 @@ export default async function NyVerifikationPage({
 }: PageProps<"/foretag/[id]/verifikationer/ny">) {
   const { id } = await params;
   const accounts = await listCompanyAccounts(id);
+  const showSeriesLetter = (await countCompanySeries(id)) > 1;
   const cookieStore = await cookies();
   const storedDate = cookieStore.get(LAST_VOUCHER_DATE_COOKIE)?.value;
   const defaultDate =
@@ -21,7 +26,12 @@ export default async function NyVerifikationPage({
 
   return (
     <main className="flex flex-1 flex-col">
-      <VoucherForm companyId={id} accounts={accounts} defaultDate={defaultDate} />
+      <VoucherForm
+        companyId={id}
+        accounts={accounts}
+        defaultDate={defaultDate}
+        showSeriesLetter={showSeriesLetter}
+      />
     </main>
   );
 }

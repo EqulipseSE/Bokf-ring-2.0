@@ -3,6 +3,7 @@ import "server-only";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { ensureCompanyBooks } from "@/lib/db/seed-company-books";
+import { voucherNumberLabel } from "@/lib/money";
 import {
   accounts,
   users,
@@ -45,6 +46,14 @@ export type VoucherDetail = {
   creditOre: number;
 };
 
+export async function countCompanySeries(companyId: string): Promise<number> {
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(voucherSeries)
+    .where(eq(voucherSeries.companyId, companyId));
+  return Number(row?.n ?? 0);
+}
+
 export async function listCompanyAccounts(
   companyId: string
 ): Promise<Account[]> {
@@ -78,9 +87,10 @@ export async function listVouchers(
     .where(eq(vouchers.companyId, companyId))
     .orderBy(desc(vouchers.registeredAt), desc(vouchers.number));
 
+  const seriesCount = await countCompanySeries(companyId);
   return rows.map((row) => ({
     id: row.id,
-    numberLabel: `${row.letter}${row.number}`,
+    numberLabel: voucherNumberLabel(row.letter, row.number, seriesCount),
     date: row.date,
     text: row.text,
     amountOre: Number(row.amountOre),
@@ -129,9 +139,10 @@ export async function getVoucher(
   const debitOre = lines.reduce((sum, line) => sum + line.debit, 0);
   const creditOre = lines.reduce((sum, line) => sum + line.credit, 0);
 
+  const seriesCount = await countCompanySeries(companyId);
   return {
     id: header.id,
-    numberLabel: `${header.letter}${header.number}`,
+    numberLabel: voucherNumberLabel(header.letter, header.number, seriesCount),
     date: header.date,
     text: header.text,
     status: header.status,
