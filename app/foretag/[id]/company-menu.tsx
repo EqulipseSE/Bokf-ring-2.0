@@ -105,7 +105,7 @@ export function CompanyMenu({
       {showVoucherSubmenu && submenu ? (
         <nav
           aria-label="Verifikationer"
-          className="flex flex-wrap items-center gap-0 border-t border-neutral-700 bg-neutral-600 px-3 py-0.5"
+          className="flex flex-wrap items-stretch gap-0.5 border-t border-neutral-300 bg-neutral-200 px-5 py-2"
         >
           <SubmenuLink
             href={voucherBase}
@@ -119,7 +119,10 @@ export function CompanyMenu({
             label="Kort"
             active={submenu.kort}
           />
-          <span aria-hidden className="mx-1 h-4 w-px bg-neutral-400" />
+          <span
+            aria-hidden
+            className="mx-1.5 my-1 w-px self-stretch bg-neutral-300"
+          />
           <SubmenuLink
             href={`${voucherBase}/ny`}
             icon="plus"
@@ -194,13 +197,13 @@ function SubmenuLink({
       href={href}
       aria-current={active ? "page" : undefined}
       onClick={onNavigate}
-      className={`inline-flex items-center gap-1 px-2 py-1 text-[11px] leading-none transition ${
+      className={`flex min-w-20 flex-col items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] transition ${
         active
-          ? "bg-neutral-800 font-medium text-white"
-          : "text-neutral-100 hover:bg-neutral-500"
+          ? "bg-white font-medium text-neutral-900 shadow-sm ring-1 ring-neutral-300"
+          : "text-neutral-600 hover:bg-white hover:text-neutral-900"
       }`}
     >
-      <MenuIconSvg name={icon} className="h-3.5 w-3.5" />
+      <MenuIconSvg name={icon} className="h-5 w-5" />
       <span>{label}</span>
     </Link>
   );
