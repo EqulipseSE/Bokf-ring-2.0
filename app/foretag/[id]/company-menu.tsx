@@ -105,21 +105,23 @@ export function CompanyMenu({
       {showVoucherSubmenu && submenu ? (
         <nav
           aria-label="Verifikationer"
-          className="flex flex-wrap items-stretch gap-1 border-t border-neutral-100 bg-neutral-50 px-5 py-2.5"
+          className="flex flex-wrap items-stretch gap-0.5 border-t border-neutral-200 bg-neutral-200/70 px-5 py-1.5"
         >
           <ToolbarItem
             item={{ label: "Lista", href: voucherBase, icon: "list" }}
             pathname={pathname}
             active={submenu.lista}
+            compact
           />
           <ToolbarItem
             item={{ label: "Kort", href: kortHref, icon: "card" }}
             pathname={pathname}
             active={submenu.kort}
+            compact
           />
           <span
             aria-hidden
-            className="mx-2 my-1 w-px self-stretch bg-neutral-200"
+            className="mx-1.5 my-0.5 w-px self-stretch bg-neutral-300"
           />
           <ToolbarItem
             item={{
@@ -129,6 +131,7 @@ export function CompanyMenu({
             }}
             pathname={pathname}
             active={submenu.ny}
+            compact
             onNavigate={() => setCardTarget(companyId, { kind: "draft" })}
           />
         </nav>
@@ -141,22 +144,25 @@ function ToolbarItem({
   item,
   pathname,
   active,
+  compact,
   onNavigate,
 }: {
   item: MenuItem;
   pathname: string;
   active?: boolean;
+  compact?: boolean;
   onNavigate?: () => void;
 }) {
   const current =
     active ?? ("href" in item && itemHrefIsCurrent(item.href, pathname));
-  const className = toolbarClass(Boolean(current));
+  const className = toolbarClass(Boolean(current), compact);
+  const iconClass = compact ? "h-5 w-5" : "h-6 w-6";
 
   if ("action" in item) {
     return (
       <form action={logout}>
         <button type="submit" className={className}>
-          <MenuIconSvg name={item.icon} className="h-6 w-6" />
+          <MenuIconSvg name={item.icon} className={iconClass} />
           <span>{item.label}</span>
         </button>
       </form>
@@ -170,13 +176,20 @@ function ToolbarItem({
       onClick={onNavigate}
       className={className}
     >
-      <MenuIconSvg name={item.icon} className="h-6 w-6" />
+      <MenuIconSvg name={item.icon} className={iconClass} />
       <span>{item.label}</span>
     </Link>
   );
 }
 
-function toolbarClass(active: boolean): string {
+function toolbarClass(active: boolean, compact?: boolean): string {
+  if (compact) {
+    return `flex min-w-[4.5rem] flex-col items-center gap-1 rounded-md px-2.5 py-1 text-[11px] leading-tight transition ${
+      active
+        ? "bg-white font-medium text-neutral-900 shadow-sm ring-1 ring-neutral-200"
+        : "text-neutral-600 hover:bg-white hover:text-neutral-900"
+    }`;
+  }
   return `flex min-w-24 flex-col items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs transition ${
     active
       ? "bg-white font-medium text-neutral-900 shadow-sm ring-1 ring-neutral-200"
