@@ -105,6 +105,24 @@ export const vouchers = pgTable(
   ]
 );
 
+export const voucherAttachments = pgTable(
+  "voucher_attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    voucherId: uuid("voucher_id")
+      .notNull()
+      .references(() => vouchers.id, { onDelete: "cascade" }),
+    originalName: text("original_name").notNull(),
+    mimeType: text("mime_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    storagePath: text("storage_path").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [unique("voucher_attachments_voucher_unique").on(t.voucherId)]
+);
+
 export const voucherLines = pgTable(
   "voucher_lines",
   {
@@ -171,7 +189,18 @@ export const vouchersRelations = relations(vouchers, ({ one, many }) => ({
     relationName: "voucher_correction",
   }),
   lines: many(voucherLines),
+  attachment: one(voucherAttachments),
 }));
+
+export const voucherAttachmentsRelations = relations(
+  voucherAttachments,
+  ({ one }) => ({
+    voucher: one(vouchers, {
+      fields: [voucherAttachments.voucherId],
+      references: [vouchers.id],
+    }),
+  })
+);
 
 export const voucherLinesRelations = relations(voucherLines, ({ one }) => ({
   voucher: one(vouchers, {
@@ -191,3 +220,4 @@ export type Account = typeof accounts.$inferSelect;
 export type VoucherSeries = typeof voucherSeries.$inferSelect;
 export type Voucher = typeof vouchers.$inferSelect;
 export type VoucherLine = typeof voucherLines.$inferSelect;
+export type VoucherAttachment = typeof voucherAttachments.$inferSelect;

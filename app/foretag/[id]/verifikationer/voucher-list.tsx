@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { formatOre } from "@/lib/money";
+import { matchesQuery } from "@/lib/search";
 import type { VoucherListItem } from "@/lib/vouchers";
 
 type ListSort = "number" | "newest";
@@ -44,8 +45,14 @@ export function VoucherList({
 }) {
   const router = useRouter();
   const newHref = `/foretag/${companyId}/verifikationer/ny`;
+  const [query, setQuery] = useState("");
   const sort = useSyncExternalStore(subscribeSort, readSort, (): ListSort => "number");
-  const sorted = sortItems(items, sort);
+  const sorted = useMemo(() => {
+    const filtered = items.filter((item) =>
+      matchesQuery([item.numberLabel, item.number, item.text], query)
+    );
+    return sortItems(filtered, sort);
+  }, [items, query, sort]);
   const ascending = sort === "number";
 
   useEffect(() => {
@@ -88,6 +95,25 @@ export function VoucherList({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
+      <div className="border-b border-neutral-200 px-4 py-3">
+        <label className="sr-only" htmlFor="voucher-list-search">
+          Sök verifikationer
+        </label>
+        <input
+          id="voucher-list-search"
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Sök nummer eller text"
+          autoComplete="off"
+          className="h-9 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-900 outline-none focus:ring-1 focus:ring-neutral-400"
+        />
+      </div>
+      {sorted.length === 0 ? (
+        <p className="px-6 py-10 text-center text-sm text-neutral-500">
+          Inga verifikationer matchar sökningen.
+        </p>
+      ) : (
       <table className="w-full text-left text-sm">
         <thead>
           <tr className="border-b border-neutral-200 text-xs uppercase tracking-wide text-neutral-500">
@@ -156,6 +182,7 @@ export function VoucherList({
           })}
         </tbody>
       </table>
+      )}
     </div>
   );
 }

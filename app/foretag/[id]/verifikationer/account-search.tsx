@@ -2,6 +2,7 @@
 
 import { useId, useMemo, useState } from "react";
 import type { Account } from "@/lib/db/schema";
+import { matchesQuery } from "@/lib/search";
 
 type AccountSearchProps = {
   accounts: Account[];
@@ -10,6 +11,7 @@ type AccountSearchProps = {
   onQueryChange: (query: string) => void;
   onSelect: (account: Account | null) => void;
   onCommit: () => void;
+  onFocusLine?: () => void;
   inputRef?: (el: HTMLInputElement | null) => void;
 };
 
@@ -20,6 +22,7 @@ export function AccountSearch({
   onQueryChange,
   onSelect,
   onCommit,
+  onFocusLine,
   inputRef,
 }: AccountSearchProps) {
   const listId = useId();
@@ -59,16 +62,19 @@ export function AccountSearch({
         aria-expanded={open}
         aria-controls={listId}
         aria-autocomplete="list"
+        aria-label="Konto"
         autoComplete="off"
         value={query}
-        placeholder="Konto"
         onChange={(event) => {
           onQueryChange(event.target.value);
           onSelect(null);
           setHighlight(0);
           setOpen(true);
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          setOpen(true);
+          onFocusLine?.();
+        }}
         onBlur={() => {
           window.setTimeout(() => setOpen(false), 120);
         }}
@@ -106,13 +112,13 @@ export function AccountSearch({
             setOpen(false);
           }
         }}
-        className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
+        className="h-8 w-full bg-transparent px-2 py-1 font-mono text-sm tabular-nums text-neutral-900 outline-none focus:bg-white focus:ring-1 focus:ring-neutral-400"
       />
       {open && matches.length > 0 ? (
         <ul
           id={listId}
           role="listbox"
-          className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-neutral-200 bg-white py-1 shadow-lg"
+          className="absolute z-20 mt-0.5 max-h-64 min-w-[18rem] overflow-auto border border-neutral-200 bg-white py-1 shadow-md"
         >
           {matches.map((account, index) => {
             const active = index === highlight;
@@ -126,11 +132,11 @@ export function AccountSearch({
                   choose(account);
                 }}
                 onMouseEnter={() => setHighlight(index)}
-                className={`flex cursor-pointer items-baseline gap-3 px-3 py-2 text-sm ${
+                className={`flex cursor-pointer items-baseline gap-3 px-2.5 py-1.5 text-sm ${
                   active ? "bg-neutral-100" : ""
                 }`}
               >
-                <span className="w-12 shrink-0 tabular-nums text-neutral-500">
+                <span className="w-12 shrink-0 font-mono tabular-nums text-neutral-500">
                   {account.number}
                 </span>
                 <span className="truncate text-neutral-900">{account.name}</span>
@@ -144,14 +150,9 @@ export function AccountSearch({
 }
 
 function filterAccounts(accounts: Account[], query: string): Account[] {
-  const q = query.trim().toLocaleLowerCase("sv");
-  if (!q) return accounts.slice(0, 12);
+  if (!query.trim()) return accounts.slice(0, 12);
   return accounts
-    .filter(
-      (account) =>
-        account.number.startsWith(q) ||
-        account.name.toLocaleLowerCase("sv").includes(q)
-    )
+    .filter((account) => matchesQuery([account.number, account.name], query))
     .slice(0, 12);
 }
 
@@ -161,6 +162,7 @@ function exactAccount(accounts: Account[], query: string): Account | undefined {
   return accounts.find(
     (account) =>
       account.number === q ||
+      account.name.toLocaleLowerCase("sv") === q ||
       `${account.number} ${account.name}`.toLocaleLowerCase("sv") === q
   );
 }

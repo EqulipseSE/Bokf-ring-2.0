@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# lokala verifikationsunderlag
+/data/
+
 # production
 /build
 
