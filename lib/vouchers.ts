@@ -2,6 +2,7 @@ import "server-only";
 
 import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { DEFAULT_SERIES_LETTER } from "@/lib/db/bas-accounts";
 import { ensureCompanyBooks } from "@/lib/db/seed-company-books";
 import { voucherNumberLabel } from "@/lib/money";
 import {
@@ -54,6 +55,26 @@ export async function countCompanySeries(companyId: string): Promise<number> {
     .from(voucherSeries)
     .where(eq(voucherSeries.companyId, companyId));
   return Number(row?.n ?? 0);
+}
+
+export async function peekNextVoucherLabel(companyId: string): Promise<string> {
+  await ensureCompanyBooks(companyId);
+  const seriesCount = await countCompanySeries(companyId);
+  const [series] = await db
+    .select({
+      letter: voucherSeries.letter,
+      nextNumber: voucherSeries.nextNumber,
+    })
+    .from(voucherSeries)
+    .where(
+      and(
+        eq(voucherSeries.companyId, companyId),
+        eq(voucherSeries.letter, DEFAULT_SERIES_LETTER)
+      )
+    )
+    .limit(1);
+  if (!series) return voucherNumberLabel(DEFAULT_SERIES_LETTER, 1, seriesCount);
+  return voucherNumberLabel(series.letter, series.nextNumber, seriesCount);
 }
 
 export async function listCompanyAccounts(

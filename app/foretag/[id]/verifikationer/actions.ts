@@ -11,6 +11,7 @@ import { DEFAULT_SERIES_LETTER } from "@/lib/db/bas-accounts";
 import { ensureCompanyBooks } from "@/lib/db/seed-company-books";
 import { accounts, voucherLines, voucherSeries, vouchers } from "@/lib/db/schema";
 import { voucherNumberLabel } from "@/lib/money";
+import { parseVoucherDate, todayIsoDate } from "@/lib/voucher-date";
 import { LAST_VOUCHER_DATE_COOKIE, countCompanySeries } from "@/lib/vouchers";
 
 export type SaveVoucherLineInput = {
@@ -27,10 +28,8 @@ export type SaveVoucherInput = {
 };
 
 export type SaveVoucherResult =
-  | { ok: true; numberLabel: string }
+  | { ok: true; numberLabel: string; nextNumberLabel: string }
   | { ok: false; error: string };
-
-const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function saveVoucher(
   input: SaveVoucherInput
@@ -43,11 +42,15 @@ export async function saveVoucher(
     return { ok: false, error: "Företaget finns inte." };
   }
 
-  const date = input.date.trim();
-  const text = input.text.trim();
-  if (!DATE_REGEX.test(date)) {
-    return { ok: false, error: "Fyll i ett giltigt datum." };
+  const cookieStore = await cookies();
+  const stored = cookieStore.get(LAST_VOUCHER_DATE_COOKIE)?.value;
+  const referenceDate = stored && /^\d{4}-\d{2}-\d{2}$/.test(stored) ? stored : todayIsoDate();
+  const parsedDate = parseVoucherDate(input.date, referenceDate);
+  if (!parsedDate.ok) {
+    return { ok: false, error: parsedDate.error };
   }
+  const date = parsedDate.iso;
+  const text = input.text.trim();
   if (!text) {
     return { ok: false, error: "Fyll i verifikationstext." };
   }
@@ -162,7 +165,6 @@ export async function saveVoucher(
     });
 
     revalidatePath(`/foretag/${company.id}/verifikationer`);
-    const cookieStore = await cookies();
     cookieStore.set(LAST_VOUCHER_DATE_COOKIE, date, {
       httpOnly: true,
       sameSite: "lax",
@@ -173,6 +175,11 @@ export async function saveVoucher(
     return {
       ok: true,
       numberLabel: voucherNumberLabel(saved.letter, saved.number, seriesCount),
+      nextNumberLabel: voucherNumberLabel(
+        saved.letter,
+        saved.number + 1,
+        seriesCount
+      ),
     };
   } catch (err) {
     if (err instanceof Error && err.message === "ACCOUNT") {

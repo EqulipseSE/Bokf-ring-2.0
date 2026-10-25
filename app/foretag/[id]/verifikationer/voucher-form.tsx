@@ -4,13 +4,15 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { Account } from "@/lib/db/schema";
 import { formatOre, formatOreInput, parseAmountToOre } from "@/lib/money";
+import { parseVoucherDate } from "@/lib/voucher-date";
 import { AccountSearch } from "./account-search";
 import { saveVoucher } from "./actions";
 
 type LineDraft = {
   key: string;
   accountId: string;
-  query: string;
+  accountNumber: string;
+  accountName: string;
   debit: string;
   credit: string;
 };
@@ -19,23 +21,28 @@ type VoucherFormProps = {
   companyId: string;
   accounts: Account[];
   defaultDate: string;
-  showSeriesLetter: boolean;
+  nextNumberLabel: string;
 };
 
 function createLine(): LineDraft {
   return {
     key: crypto.randomUUID(),
     accountId: "",
-    query: "",
+    accountNumber: "",
+    accountName: "",
     debit: "",
     credit: "",
   };
 }
 
+function emptyLines(count: number): LineDraft[] {
+  return Array.from({ length: count }, createLine);
+}
+
 function isLineEmpty(line: LineDraft): boolean {
   return (
     !line.accountId &&
-    !line.query.trim() &&
+    !line.accountNumber.trim() &&
     !line.debit.trim() &&
     !line.credit.trim()
   );
@@ -52,21 +59,27 @@ function sumLines(lines: LineDraft[]): { debit: number; credit: number } {
   );
 }
 
+const fieldClass =
+  "h-8 border border-neutral-300 bg-white px-2 text-sm text-neutral-900 outline-none focus:ring-1 focus:ring-neutral-400";
+const cellInputClass =
+  "h-8 w-full bg-transparent px-2 py-1 text-sm text-neutral-900 outline-none focus:bg-white focus:ring-1 focus:ring-neutral-400";
+
 export function VoucherForm({
   companyId,
   accounts,
   defaultDate,
-  showSeriesLetter,
+  nextNumberLabel,
 }: VoucherFormProps) {
-  const [date, setDate] = useState(defaultDate);
+  const [numberLabel, setNumberLabel] = useState(nextNumberLabel);
+  const [dateInput, setDateInput] = useState(defaultDate);
+  const [anchorDate, setAnchorDate] = useState(defaultDate);
+  const [dateError, setDateError] = useState<string | null>(null);
   const [text, setText] = useState("");
-  const [lines, setLines] = useState<LineDraft[]>(() => [
-    createLine(),
-    createLine(),
-  ]);
+  const [lines, setLines] = useState<LineDraft[]>(() => emptyLines(8));
   const [savedLabel, setSavedLabel] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const dateRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLInputElement>(null);
   const accountRefs = useRef<Array<HTMLInputElement | null>>([]);
   const debitRefs = useRef<Array<HTMLInputElement | null>>([]);
@@ -90,7 +103,7 @@ export function VoucherForm({
     );
   }
 
-  function applyRemainder(index: number, account: Account | null) {
+  function applyAccount(index: number, account: Account | null) {
     setLines((prev) => {
       const current = prev[index];
       if (!current) return prev;
@@ -101,7 +114,8 @@ export function VoucherForm({
             ? {
                 ...line,
                 accountId: account?.id ?? "",
-                query: account ? `${account.number} ${account.name}` : line.query,
+                accountNumber: account?.number ?? line.accountNumber,
+                accountName: account?.name ?? "",
                 debit: line.debit || remainder.debit,
                 credit: line.credit || remainder.credit,
               }
@@ -134,8 +148,27 @@ export function VoucherForm({
     });
   }
 
+  function resolvedDate(): string | null {
+    const parsed = parseVoucherDate(dateInput, anchorDate);
+    if (!parsed.ok) {
+      setDateError(parsed.error);
+      return null;
+    }
+    setDateInput(parsed.iso);
+    setAnchorDate(parsed.iso);
+    setDateError(null);
+    return parsed.iso;
+  }
+
+  function commitDate(): boolean {
+    return resolvedDate() !== null;
+  }
+
   function submit() {
-    if (!balanced || pending) return;
+    if (pending) return;
+    const isoDate = resolvedDate();
+    if (!isoDate) return;
+    if (!balanced) return;
     setError(null);
     const payloadLines = lines
       .filter((line) => !isLineEmpty(line))
@@ -148,7 +181,7 @@ export function VoucherForm({
     startTransition(async () => {
       const result = await saveVoucher({
         companyId,
-        date,
+        date: isoDate,
         text,
         lines: payloadLines,
       });
@@ -158,8 +191,11 @@ export function VoucherForm({
         return;
       }
       setSavedLabel(result.numberLabel);
+      setNumberLabel(result.nextNumberLabel);
+      setDateInput(isoDate);
+      setAnchorDate(isoDate);
       setText("");
-      setLines([createLine(), createLine()]);
+      setLines(emptyLines(8));
       setError(null);
       window.requestAnimationFrame(() => textRef.current?.focus());
     });
@@ -174,11 +210,10 @@ export function VoucherForm({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // submit closes over current state; rebind when it changes.
   });
 
   return (
-    <div className="mx-auto w-full max-w-4xl flex-1 px-6 py-10">
+    <div className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">
       <Link
         href={listHref}
         className="text-sm text-neutral-500 transition hover:text-neutral-900"
@@ -186,202 +221,239 @@ export function VoucherForm({
         ← Tillbaka till verifikationer
       </Link>
 
-      <div className="mt-4 mb-8 flex items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">
-            Ny verifikation
-          </h1>
-          <p className="mt-1 text-sm text-neutral-500">
-            {showSeriesLetter
-              ? "Serie A · numret tilldelas när du sparar"
-              : "Numret tilldelas när du sparar"}
-          </p>
-        </div>
+      <div className="mt-3 mb-4 flex items-baseline justify-between gap-4">
+        <h1 className="text-xl font-semibold tracking-tight text-neutral-900">
+          Verifikation
+        </h1>
         {savedLabel ? (
-          <p
-            role="status"
-            className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-800"
-          >
+          <p role="status" className="text-sm font-medium text-emerald-800">
             {savedLabel} sparad
           </p>
         ) : null}
       </div>
 
-      <div className="rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm">
-        <div className="grid gap-5 sm:grid-cols-[12rem_minmax(0,1fr)]">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="voucher-date" className="text-sm font-medium text-neutral-700">
-              Datum
-            </label>
+      <div className="border border-neutral-200 bg-white">
+        <div className="flex flex-wrap items-end gap-x-6 gap-y-3 border-b border-neutral-200 px-4 py-3">
+          <label className="flex items-center gap-2 text-sm text-neutral-700">
+            <span className="w-28 shrink-0">Ver.nr</span>
             <input
-              id="voucher-date"
-              type="date"
-              required
-              value={date}
-              onChange={(event) => setDate(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  textRef.current?.focus();
-                }
-              }}
-              className="rounded-lg border border-neutral-300 bg-white px-3.5 py-2.5 tabular-nums text-neutral-900 outline-none transition focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
+              value={numberLabel}
+              readOnly
+              tabIndex={-1}
+              aria-label="Verifikationsnummer"
+              className={`${fieldClass} w-24 bg-neutral-50 tabular-nums text-neutral-700`}
             />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="voucher-text" className="text-sm font-medium text-neutral-700">
-              Text
+          </label>
+          <div>
+            <label className="flex items-center gap-2 text-sm text-neutral-700">
+              <span className="w-16 shrink-0">Datum</span>
+              <input
+                ref={dateRef}
+                id="voucher-date"
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                value={dateInput}
+                onChange={(event) => {
+                  setDateInput(event.target.value);
+                  setDateError(null);
+                }}
+                onBlur={commitDate}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    if (commitDate()) textRef.current?.focus();
+                  }
+                }}
+                aria-invalid={dateError ? true : undefined}
+                className={`${fieldClass} w-32 tabular-nums ${dateError ? "border-red-500" : ""}`}
+              />
             </label>
+            {dateError ? (
+              <p role="alert" className="mt-1 ml-[4.5rem] text-xs text-red-700">
+                {dateError}
+              </p>
+            ) : null}
+          </div>
+          <label className="flex min-w-[16rem] flex-1 items-center gap-2 text-sm text-neutral-700">
+            <span className="shrink-0">Verifikationstext</span>
             <input
               id="voucher-text"
               ref={textRef}
               value={text}
               onChange={(event) => setText(event.target.value)}
-              placeholder="T.ex. Hyra oktober"
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   event.preventDefault();
                   accountRefs.current[0]?.focus();
                 }
               }}
-              className="rounded-lg border border-neutral-300 bg-white px-3.5 py-2.5 text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
+              className={`${fieldClass} min-w-0 flex-1`}
             />
-          </div>
+          </label>
         </div>
 
-        <div className="mt-8 overflow-visible">
-          <table className="w-full border-separate border-spacing-y-2 text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-neutral-500">
-                <th className="px-1 font-medium">Konto</th>
-                <th className="w-40 px-1 text-right font-medium">Debet</th>
-                <th className="w-40 px-1 text-right font-medium">Kredit</th>
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-neutral-200 bg-neutral-100 text-left text-xs font-medium text-neutral-600">
+              <th className="w-24 px-2 py-2">Konto</th>
+              <th className="px-2 py-2">Benämning</th>
+              <th className="w-32 px-2 py-2 text-right">Debet</th>
+              <th className="w-32 px-2 py-2 text-right">Kredit</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map((line, index) => (
+              <tr key={line.key} className="border-b border-neutral-100">
+                <td className="p-0 align-top">
+                  <AccountSearch
+                    accounts={accounts}
+                    query={line.accountNumber}
+                    selectedId={line.accountId}
+                    inputRef={(el) => {
+                      accountRefs.current[index] = el;
+                    }}
+                    onQueryChange={(accountNumber) =>
+                      updateLine(index, {
+                        accountNumber,
+                        accountId: "",
+                        accountName: "",
+                      })
+                    }
+                    onSelect={(account) => {
+                      if (!account) {
+                        updateLine(index, { accountId: "", accountName: "" });
+                        return;
+                      }
+                      applyAccount(index, account);
+                    }}
+                    onCommit={() => focusAmountAfterAccount(index)}
+                  />
+                </td>
+                <td className="p-0 align-middle">
+                  <input
+                    tabIndex={-1}
+                    readOnly
+                    value={line.accountName}
+                    aria-label={`Benämning rad ${index + 1}`}
+                    className={`${cellInputClass} text-neutral-600`}
+                  />
+                </td>
+                <td className="p-0 align-top">
+                  <input
+                    ref={(el) => {
+                      debitRefs.current[index] = el;
+                    }}
+                    inputMode="decimal"
+                    value={line.debit}
+                    aria-label={`Debet rad ${index + 1}`}
+                    onChange={(event) =>
+                      updateLine(index, { debit: event.target.value, credit: "" })
+                    }
+                    onFocus={(event) => {
+                      if (!line.debit && !line.credit) {
+                        const suggestion = remainderSuggestion(lines, index);
+                        if (suggestion.debit) {
+                          updateLine(index, { debit: suggestion.debit, credit: "" });
+                        }
+                      }
+                      event.target.select();
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        if (line.debit.trim()) {
+                          focusNextAccount(index);
+                        } else {
+                          creditRefs.current[index]?.focus();
+                        }
+                      }
+                      if (event.key === "Tab" && !event.shiftKey && line.debit.trim()) {
+                        event.preventDefault();
+                        focusNextAccount(index);
+                      }
+                    }}
+                    className={`${cellInputClass} text-right tabular-nums`}
+                  />
+                </td>
+                <td className="p-0 align-top">
+                  <input
+                    ref={(el) => {
+                      creditRefs.current[index] = el;
+                    }}
+                    inputMode="decimal"
+                    value={line.credit}
+                    aria-label={`Kredit rad ${index + 1}`}
+                    onChange={(event) =>
+                      updateLine(index, { credit: event.target.value, debit: "" })
+                    }
+                    onFocus={(event) => {
+                      if (!line.debit && !line.credit) {
+                        const suggestion = remainderSuggestion(lines, index);
+                        if (suggestion.credit) {
+                          updateLine(index, { debit: "", credit: suggestion.credit });
+                        }
+                      }
+                      event.target.select();
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        focusNextAccount(index);
+                      }
+                    }}
+                    className={`${cellInputClass} text-right tabular-nums`}
+                  />
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {lines.map((line, index) => (
-                <tr key={line.key}>
-                  <td className="px-1 align-top">
-                    <AccountSearch
-                      accounts={accounts}
-                      query={line.query}
-                      selectedId={line.accountId}
-                      inputRef={(el) => {
-                        accountRefs.current[index] = el;
-                      }}
-                      onQueryChange={(query) => updateLine(index, { query })}
-                      onSelect={(account) => {
-                        if (!account) {
-                          updateLine(index, { accountId: "" });
-                          return;
-                        }
-                        applyRemainder(index, account);
-                      }}
-                      onCommit={() => focusAmountAfterAccount(index)}
-                    />
-                  </td>
-                  <td className="px-1 align-top">
-                    <input
-                      ref={(el) => {
-                        debitRefs.current[index] = el;
-                      }}
-                      inputMode="decimal"
-                      value={line.debit}
-                      aria-label={`Debet rad ${index + 1}`}
-                      onChange={(event) =>
-                        updateLine(index, { debit: event.target.value, credit: "" })
-                      }
-                      onFocus={(event) => {
-                        if (!line.debit && !line.credit) {
-                          const suggestion = remainderSuggestion(lines, index);
-                          if (suggestion.debit) {
-                            updateLine(index, { debit: suggestion.debit, credit: "" });
-                          }
-                        }
-                        event.target.select();
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          if (line.debit.trim()) {
-                            focusNextAccount(index);
-                          } else {
-                            creditRefs.current[index]?.focus();
-                          }
-                        }
-                        if (event.key === "Tab" && !event.shiftKey && line.debit.trim()) {
-                          event.preventDefault();
-                          focusNextAccount(index);
-                        }
-                      }}
-                      className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-right tabular-nums text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
-                    />
-                  </td>
-                  <td className="px-1 align-top">
-                    <input
-                      ref={(el) => {
-                        creditRefs.current[index] = el;
-                      }}
-                      inputMode="decimal"
-                      value={line.credit}
-                      aria-label={`Kredit rad ${index + 1}`}
-                      onChange={(event) =>
-                        updateLine(index, { credit: event.target.value, debit: "" })
-                      }
-                      onFocus={(event) => {
-                        if (!line.debit && !line.credit) {
-                          const suggestion = remainderSuggestion(lines, index);
-                          if (suggestion.credit) {
-                            updateLine(index, { debit: "", credit: suggestion.credit });
-                          }
-                        }
-                        event.target.select();
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          focusNextAccount(index);
-                        }
-                      }}
-                      className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-right tabular-nums text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+            <tr className="border-t border-neutral-200 bg-neutral-50 text-sm">
+              <td colSpan={2} className="px-2 py-2 text-neutral-600">
+                Summa
+              </td>
+              <td className="px-2 py-2 text-right tabular-nums text-neutral-900">
+                {formatOre(totals.debit)}
+              </td>
+              <td className="px-2 py-2 text-right tabular-nums text-neutral-900">
+                {formatOre(totals.credit)}
+              </td>
+            </tr>
+            <tr className="text-sm">
+              <td colSpan={2} className="px-2 py-2 text-neutral-600">
+                Diff
+              </td>
+              <td />
+              <td
+                className={`px-2 py-2 text-right tabular-nums ${
+                  difference === 0 ? "text-neutral-900" : "font-medium text-red-700"
+                }`}
+              >
+                {formatOre(Math.abs(difference))}
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-neutral-100 pt-6">
-          <p className="text-sm tabular-nums text-neutral-600">
-            Debet {formatOre(totals.debit)}
-            <span className="mx-3 text-neutral-300">·</span>
-            Kredit {formatOre(totals.credit)}
-            <span className="mx-3 text-neutral-300">·</span>
-            <span className={difference === 0 ? "text-neutral-600" : "font-medium text-red-700"}>
-              Differens {formatOre(Math.abs(difference))}
-            </span>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-200 px-4 py-3">
+          <p className="text-xs text-neutral-400">
+            Tab: konto → debet → kredit. Restbelopp föreslås på nästa rad. Ctrl+S
+            registrerar när diff är 0.
           </p>
           <button
             type="button"
-            disabled={!balanced || pending}
+            disabled={!balanced || pending || Boolean(dateError)}
             onClick={submit}
-            className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md bg-neutral-900 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {pending ? "Sparar…" : "Spara verifikation"}
+            {pending ? "Sparar…" : "Registrera"}
           </button>
         </div>
 
         {error ? (
-          <p role="alert" className="mt-4 text-sm text-red-700">
+          <p role="alert" className="px-4 pb-3 text-sm text-red-700">
             {error}
           </p>
-        ) : (
-          <p className="mt-4 text-xs text-neutral-400">
-            Tab mellan fälten. Restbeloppet föreslås på nästa rad. Ctrl+S sparar när
-            verifikationen är i balans.
-          </p>
-        )}
+        ) : null}
       </div>
     </div>
   );
