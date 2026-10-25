@@ -23,6 +23,12 @@ const PATHS: Record<MenuIcon, ReactNode> = {
       <path d="M10 12h10" />
     </>
   ),
+  transfer: (
+    <>
+      <path d="M7 7h11l-3-3" />
+      <path d="M17 17H6l3 3" />
+    </>
+  ),
   document: (
     <>
       <path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" />
