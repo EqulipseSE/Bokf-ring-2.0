@@ -22,12 +22,14 @@ export default async function KontoplanPage({
         Kontoplan
       </h1>
       <p className="mt-1 text-sm text-neutral-500">
-        Företagets konton. Nya företag får hela BAS 2026; listan kan ha
-        redigerats när företaget skapades.
+        Företagets konton. Avaktiverade konton syns här men inte vid
+        kontering.
       </p>
       <div className="mt-8">
         <AccountChart
+          companyId={company.id}
           accounts={accounts.map((account) => ({
+            id: account.id,
             number: account.number,
             name: account.name,
             active: account.active,

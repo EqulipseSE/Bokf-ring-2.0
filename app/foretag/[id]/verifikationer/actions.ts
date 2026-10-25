@@ -115,13 +115,15 @@ export async function saveVoucher(
         .select({
           id: accounts.id,
           vatCode: accounts.vatCode,
+          active: accounts.active,
         })
         .from(accounts)
         .where(eq(accounts.companyId, company.id));
       const accountById = new Map(accountRows.map((row) => [row.id, row]));
 
       for (const line of lines) {
-        if (!accountById.has(line.accountId)) {
+        const account = accountById.get(line.accountId);
+        if (!account || !account.active) {
           throw new Error("ACCOUNT");
         }
       }
