@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { companies } from "@/lib/db/schema";
+import { seedCompanyBooks } from "@/lib/db/seed-company-books";
 import { isValidOrgNumber } from "@/lib/organisationsnummer";
 
 export type CreateCompanyState = { error: string } | null;
@@ -28,7 +29,13 @@ export async function createCompany(
   }
 
   try {
-    await db.insert(companies).values({ name, orgNumber });
+    await db.transaction(async (tx) => {
+      const [company] = await tx
+        .insert(companies)
+        .values({ name, orgNumber })
+        .returning({ id: companies.id });
+      await seedCompanyBooks(tx, company.id);
+    });
   } catch (err) {
     // 23505 = unique_violation i Postgres (organisationsnumret finns redan).
     if (

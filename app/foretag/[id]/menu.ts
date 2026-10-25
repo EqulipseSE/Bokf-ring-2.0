@@ -1,6 +1,5 @@
 export const PLACEHOLDERS = {
   foretagsinstallningar: "Företagsinställningar",
-  verifikationer: "Verifikationer",
   momskontroll: "Momskontroll",
   kontoplan: "Kontoplan",
   periodlasning: "Periodlåsning",
@@ -17,8 +16,12 @@ export function isPlaceholderSlug(value: string): value is PlaceholderSlug {
   return value in PLACEHOLDERS;
 }
 
-export function companyHref(companyId: string, slug: PlaceholderSlug): string {
+export function companyHref(companyId: string, slug: PlaceholderSlug | "verifikationer"): string {
   return `/foretag/${companyId}/${slug}`;
+}
+
+export function itemHrefIsCurrent(href: string, pathname: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 export type MenuIcon =
@@ -113,6 +116,8 @@ export function groupIdForPath(
   pathname: string
 ): string | undefined {
   return groups.find((group) =>
-    group.items.some((item) => "href" in item && item.href === pathname)
+    group.items.some(
+      (item) => "href" in item && itemHrefIsCurrent(item.href, pathname)
+    )
   )?.id;
 }

@@ -1,7 +1,7 @@
 # Omnio
 
 Minimalistiskt webbaserat bokföringsprogram för intern användning på redovisningsbyrån.
-Detta är **etapp 0**: projektgrund och inloggning. Bokföringsfunktionerna kommer i senare steg.
+Första fungerande steget: inloggning, klientföretag och verifikationsregistrering.
 
 ## Stack
 
@@ -36,7 +36,8 @@ pnpm create-user admin@byran.se "Anna Andersson" valfritt-lösenord
 pnpm dev
 ```
 
-Öppna [http://localhost:3000](http://localhost:3000) och logga in.
+Öppna [http://localhost:3000](http://localhost:3000) och logga in. Välj ett företag och gå till
+**Bokföring → Verifikationer** för att registrera och lista verifikationer.
 
 ## Användare och inloggning
 
