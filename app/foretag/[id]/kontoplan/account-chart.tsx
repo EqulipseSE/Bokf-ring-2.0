@@ -2,6 +2,7 @@
 
 import { useMemo, useOptimistic, useState, useTransition } from "react";
 import { matchesAccountQuery } from "@/lib/db/bas-accounts";
+import { formatOre } from "@/lib/money";
 import { setAccountActive } from "./actions";
 
 type ChartAccount = {
@@ -9,6 +10,8 @@ type ChartAccount = {
   number: string;
   name: string;
   active: boolean;
+  openingOre: number;
+  closingOre: number;
 };
 
 export function AccountChart({
@@ -37,12 +40,12 @@ export function AccountChart({
   );
   const inactiveCount = optimistic.filter((account) => !account.active).length;
 
-  function toggle(account: ChartAccount) {
-    const next = !account.active;
+  function toggle(account: ChartAccount, active: boolean) {
+    if (active === account.active) return;
     setError(null);
     startTransition(async () => {
-      setOptimistic({ id: account.id, active: next });
-      const result = await setAccountActive(companyId, account.id, next);
+      setOptimistic({ id: account.id, active });
+      const result = await setAccountActive(companyId, account.id, active);
       if (!result.ok) {
         setOptimistic({ id: account.id, active: account.active });
         setError(result.error);
@@ -73,7 +76,8 @@ export function AccountChart({
           : null}
       </p>
       <p className="text-xs text-neutral-400">
-        Inaktiva konton syns här men inte när du bokför.
+        Ikryssad = aktiv vid bokföring. Inaktiva syns här men inte i
+        kontosöket.
       </p>
 
       {error ? (
@@ -86,9 +90,17 @@ export function AccountChart({
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-neutral-200 text-xs uppercase tracking-wide text-neutral-500">
-              <th className="w-28 px-6 py-3.5 font-medium">Nummer</th>
-              <th className="px-6 py-3.5 font-medium">Namn</th>
-              <th className="w-36 px-6 py-3.5 font-medium">Status</th>
+              <th className="w-10 px-4 py-3.5 font-medium">
+                <span className="sr-only">Aktiv</span>
+              </th>
+              <th className="w-24 py-3.5 pr-4 font-medium">Nummer</th>
+              <th className="px-4 py-3.5 font-medium">Namn</th>
+              <th className="w-36 px-4 py-3.5 text-right font-medium">
+                Ingående saldo
+              </th>
+              <th className="w-36 px-4 py-3.5 text-right font-medium">
+                Utgående saldo
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100">
@@ -97,43 +109,50 @@ export function AccountChart({
                 key={account.id}
                 className={account.active ? "" : "bg-neutral-50"}
               >
+                <td className="px-4 py-2.5">
+                  <input
+                    type="checkbox"
+                    checked={account.active}
+                    onChange={(event) => toggle(account, event.target.checked)}
+                    aria-label={`Aktivt konto ${account.number} ${account.name}`}
+                    className="h-4 w-4 accent-neutral-900"
+                  />
+                </td>
                 <td
-                  className={`px-6 py-2.5 font-mono tabular-nums ${
+                  className={`py-2.5 pr-4 font-mono tabular-nums ${
                     account.active ? "text-neutral-700" : "text-neutral-400"
                   }`}
                 >
                   {account.number}
                 </td>
                 <td
-                  className={`px-6 py-2.5 ${
+                  className={`px-4 py-2.5 ${
                     account.active ? "text-neutral-900" : "text-neutral-400"
                   }`}
                 >
                   {account.name}
                 </td>
-                <td className="px-6 py-2.5">
-                  <div className="flex items-center gap-2">
-                    {!account.active ? (
-                      <span className="rounded-full bg-neutral-200 px-2 py-0.5 text-xs font-medium text-neutral-600">
-                        Inaktiv
-                      </span>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={() => toggle(account)}
-                      className="rounded-lg border border-neutral-300 bg-white px-2.5 py-1 text-xs font-medium text-neutral-700 transition hover:bg-neutral-100"
-                    >
-                      {account.active ? "Avaktivera" : "Aktivera"}
-                    </button>
-                  </div>
+                <td
+                  className={`px-4 py-2.5 text-right tabular-nums ${
+                    account.active ? "text-neutral-700" : "text-neutral-400"
+                  }`}
+                >
+                  {formatOre(account.openingOre)}
+                </td>
+                <td
+                  className={`px-4 py-2.5 text-right tabular-nums ${
+                    account.active ? "text-neutral-700" : "text-neutral-400"
+                  }`}
+                >
+                  {formatOre(account.closingOre)}
                 </td>
               </tr>
             ))}
             {filtered.length === 0 ? (
               <tr>
                 <td
-                  colSpan={3}
-                  className="px-6 py-10 text-center text-neutral-500"
+                  colSpan={5}
+                  className="px-4 py-10 text-center text-neutral-500"
                 >
                   Inga konton matchar sökningen.
                 </td>

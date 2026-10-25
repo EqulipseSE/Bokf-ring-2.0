@@ -45,9 +45,9 @@ Nya företag får **hela BAS 2026-kontoplanen** (1 282 konton) som standard — 
 och namn från BAS-kontogruppens officiella kontotabell
 ([bas.se/kontoplaner](https://www.bas.se/kontoplaner/)). Vid **Nytt företag** kan du
 lägga till, ta bort eller byta namn på konton innan du sparar. Under
-**Bokföring → Kontoplan** visas företagets faktiska lista. Där kan du aktivera och
-avaktivera konton; inaktiva syns inte när du bokför. Nya företag får alla BAS-konton
-aktiva.
+**Bokföring → Kontoplan** visas företagets faktiska lista. En kryssruta till vänster
+om kontonumret slår av och på kontot (inaktiva syns inte när du bokför). Till höger
+visas ingående och utgående saldo. Nya företag får alla BAS-konton aktiva.
 
 Befintliga företag som skapades med den korta 14-kontolistan lämnas orörda. För att
 komplettera med saknade BAS-konton (befintliga nummer och namn ändras inte):
