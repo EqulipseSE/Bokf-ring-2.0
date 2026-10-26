@@ -28,9 +28,11 @@ import {
 export function CompanyMenu({
   companyId,
   companyName,
+  accountingMethod,
 }: {
   companyId: string;
   companyName: string;
+  accountingMethod: string;
 }) {
   const pathname = usePathname();
   const groups = menuGroups(companyId);
@@ -122,8 +124,10 @@ export function CompanyMenu({
             );
           })}
         </nav>
-        <p className="truncate py-3 text-sm font-medium text-neutral-600">
-          {companyName}
+        <p className="truncate py-3 text-right text-sm text-neutral-600">
+          <span className="font-medium text-neutral-800">{companyName}</span>
+          <span className="mx-2 text-neutral-300">·</span>
+          <span>{accountingMethod}</span>
         </p>
       </div>
 

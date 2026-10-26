@@ -17,12 +17,16 @@ type SavedVoucherProps = {
   companyId: string;
   voucher: VoucherDetail;
   accountBalances: Record<string, number>;
+  periodLocked: boolean;
+  lockMessage: string | null;
 };
 
 export function SavedVoucher({
   companyId,
   voucher,
   accountBalances,
+  periodLocked,
+  lockMessage,
 }: SavedVoucherProps) {
   const listHref = `/foretag/${companyId}/verifikationer`;
   const fileRef = useRef<HTMLInputElement>(null);
@@ -118,7 +122,7 @@ export function SavedVoucher({
             <button
               type="button"
               className={headerButtonClass}
-              disabled={pending}
+              disabled={pending || periodLocked}
               onClick={() => fileRef.current?.click()}
             >
               {pending ? "Sparar underlag…" : "Koppla underlag"}
@@ -134,6 +138,11 @@ export function SavedVoucher({
           </div>
         </div>
 
+        {periodLocked && lockMessage ? (
+          <p className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-950">
+            {lockMessage} Underlag kan inte läggas till.
+          </p>
+        ) : null}
         {error ? (
           <p role="alert" className="border-b border-neutral-200 px-4 py-2 text-sm text-red-700">
             {error}

@@ -16,6 +16,8 @@ import { ensureCompanyBooks } from "@/lib/db/seed-company-books";
 import { accounts, voucherLines, voucherSeries, vouchers } from "@/lib/db/schema";
 import { voucherNumberLabel } from "@/lib/money";
 import { parseVatCode } from "@/lib/vat-codes";
+import { assertDateOpen } from "@/lib/period-lock";
+import { getLockedThrough } from "@/lib/period-lock-query";
 import { todayIsoDate } from "@/lib/voucher-date";
 import { countCompanySeries, getAccountBalances, getOpeningBalances } from "@/lib/vouchers";
 
@@ -127,6 +129,11 @@ export async function saveBalanceAdjustment(
 
   await ensureCompanyBooks(company.id);
 
+  const date = todayIsoDate();
+  const lockedThrough = await getLockedThrough(company.id);
+  const periodCheck = assertDateOpen(date, lockedThrough);
+  if (!periodCheck.ok) return periodCheck;
+
   try {
     const saved = await db.transaction(async (tx) => {
       const accountRows = await tx
@@ -177,7 +184,7 @@ export async function saveBalanceAdjustment(
           companyId: company.id,
           seriesId: series.id,
           number,
-          date: todayIsoDate(),
+          date,
           text: balanceAdjustmentText(input.kind, account.number, account.name),
           registeredBy: user.id,
           isOpening: input.kind === "opening",
@@ -222,6 +229,11 @@ export async function saveBalanceAdjustment(
     }
     if (err instanceof Error && err.message === "SERIES") {
       return { ok: false, error: "Verifikationsserie saknas." };
+    }
+    if (err instanceof Error && err.message.includes("PERIOD_LOCKED")) {
+      return periodCheck.ok
+        ? { ok: false, error: "Perioden är låst." }
+        : periodCheck;
     }
     throw err;
   }

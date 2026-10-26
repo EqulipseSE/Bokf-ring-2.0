@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { assertDateOpen } from "@/lib/period-lock";
+import { getLockedThrough } from "@/lib/period-lock-query";
 import { getAccountBalances, getVoucher } from "@/lib/vouchers";
 import { SavedVoucher } from "../saved-voucher";
 
@@ -18,6 +20,8 @@ export default async function VerifikationPage({
   const voucher = await getVoucher(id, voucherId);
   if (!voucher) notFound();
   const accountBalances = await getAccountBalances(id);
+  const lockedThrough = await getLockedThrough(id);
+  const periodCheck = assertDateOpen(voucher.date, lockedThrough);
 
   return (
     <main className="flex flex-1 flex-col">
@@ -25,6 +29,8 @@ export default async function VerifikationPage({
         companyId={id}
         voucher={voucher}
         accountBalances={accountBalances}
+        periodLocked={!periodCheck.ok}
+        lockMessage={periodCheck.ok ? null : periodCheck.error}
       />
     </main>
   );

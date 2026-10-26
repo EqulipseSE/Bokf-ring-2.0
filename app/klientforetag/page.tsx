@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { asc } from "drizzle-orm";
 import { AppHeader } from "@/app/components/app-header";
 import { getCurrentUser } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { companies } from "@/lib/db/schema";
+import { listClientRows } from "@/lib/client-list-query";
+import { ClientTable } from "./client-table";
 
 export const metadata: Metadata = {
   title: "Klientföretag — Omnio",
@@ -15,16 +14,13 @@ export default async function KlientforetagPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/logga-in");
 
-  const clients = await db
-    .select()
-    .from(companies)
-    .orderBy(asc(companies.name));
+  const clients = await listClientRows();
 
   return (
     <div className="flex flex-1 flex-col bg-neutral-50">
       <AppHeader userName={user.name} />
 
-      <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
+      <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-12">
         <div className="mb-8 flex items-end justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">
@@ -56,42 +52,7 @@ export default async function KlientforetagPage() {
             </Link>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-neutral-200 text-xs uppercase tracking-wide text-neutral-500">
-                  <th className="px-6 py-3.5 font-medium">Företag</th>
-                  <th className="px-6 py-3.5 font-medium">Org.nr</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100">
-                {clients.map((company) => (
-                  <tr
-                    key={company.id}
-                    className="group transition hover:bg-neutral-50"
-                  >
-                    <td className="p-0">
-                      <Link
-                        href={`/foretag/${company.id}`}
-                        className="block px-6 py-4 font-medium text-neutral-900"
-                      >
-                        {company.name}
-                      </Link>
-                    </td>
-                    <td className="p-0">
-                      <Link
-                        href={`/foretag/${company.id}`}
-                        tabIndex={-1}
-                        className="block px-6 py-4 tabular-nums text-neutral-500"
-                      >
-                        {company.orgNumber}
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ClientTable clients={clients} />
         )}
       </main>
     </div>

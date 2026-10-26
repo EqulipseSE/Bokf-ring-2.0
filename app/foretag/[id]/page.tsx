@@ -1,3 +1,7 @@
+import {
+  accountingMethodLabel,
+  vatPeriodLabel,
+} from "@/lib/company-settings";
 import { getCompany } from "@/lib/company";
 
 export default async function ForetagPage({
@@ -15,6 +19,24 @@ export default async function ForetagPage({
       <p className="mt-1 text-sm tabular-nums text-neutral-500">
         {company.orgNumber}
       </p>
+      <dl className="mt-6 grid gap-3 text-sm sm:grid-cols-2">
+        <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3">
+          <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+            Redovisningsmetod
+          </dt>
+          <dd className="mt-1 font-medium text-neutral-900">
+            {accountingMethodLabel(company.accountingMethod)}
+          </dd>
+        </div>
+        <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3">
+          <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+            Momsperiod
+          </dt>
+          <dd className="mt-1 font-medium text-neutral-900">
+            {vatPeriodLabel(company.vatPeriod)}
+          </dd>
+        </div>
+      </dl>
       <p className="mt-6 text-sm text-neutral-500">
         Välj ett alternativ i menyn. Innehållet kommer i nästa steg.
       </p>

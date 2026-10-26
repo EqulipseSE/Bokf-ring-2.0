@@ -6,6 +6,10 @@ import { db } from "@/lib/db";
 import { parseAccountDrafts } from "@/lib/db/bas-accounts";
 import { companies } from "@/lib/db/schema";
 import { seedCompanyBooks } from "@/lib/db/seed-company-books";
+import {
+  parseAccountingMethod,
+  parseVatPeriodKind,
+} from "@/lib/company-settings";
 import { isValidOrgNumber } from "@/lib/organisationsnummer";
 
 export type CreateCompanyState = { error: string } | null;
@@ -34,12 +38,23 @@ export async function createCompany(
   if ("error" in parsedAccounts) {
     return { error: parsedAccounts.error };
   }
+  const vatPeriod = parseVatPeriodKind(formData.get("vatPeriod"));
+  if (!vatPeriod.ok) return { error: vatPeriod.error };
+  const accountingMethod = parseAccountingMethod(
+    formData.get("accountingMethod")
+  );
+  if (!accountingMethod.ok) return { error: accountingMethod.error };
 
   try {
     await db.transaction(async (tx) => {
       const [company] = await tx
         .insert(companies)
-        .values({ name, orgNumber })
+        .values({
+          name,
+          orgNumber,
+          vatPeriod: vatPeriod.value,
+          accountingMethod: accountingMethod.value,
+        })
         .returning({ id: companies.id });
       await seedCompanyBooks(tx, company.id, parsedAccounts.accounts);
     });

@@ -5,6 +5,8 @@ import path from "path";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { voucherAttachments, vouchers } from "@/lib/db/schema";
+import { assertDateOpen } from "@/lib/period-lock";
+import { getLockedThrough } from "@/lib/period-lock-query";
 import {
   detectUnderlagMime,
   UNDERLAG_MAX_BYTES,
@@ -39,13 +41,20 @@ export async function persistVoucherUnderlag(
   }
 
   const [voucher] = await db
-    .select({ id: vouchers.id, companyId: vouchers.companyId })
+    .select({
+      id: vouchers.id,
+      companyId: vouchers.companyId,
+      date: vouchers.date,
+    })
     .from(vouchers)
     .where(eq(vouchers.id, voucherId))
     .limit(1);
   if (!voucher || voucher.companyId !== companyId) {
     return { ok: false, error: "Verifikationen finns inte." };
   }
+  const lockedThrough = await getLockedThrough(companyId);
+  const periodCheck = assertDateOpen(voucher.date, lockedThrough);
+  if (!periodCheck.ok) return periodCheck;
 
   const [existing] = await db
     .select()
