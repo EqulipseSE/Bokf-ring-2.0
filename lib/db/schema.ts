@@ -45,6 +45,20 @@ export const companies = pgTable("companies", {
     .defaultNow(),
 });
 
+/** Ett lock per företag: alla datum t.o.m. lockedThrough är låsta. */
+export const companyPeriodLocks = pgTable("company_period_locks", {
+  companyId: uuid("company_id")
+    .primaryKey()
+    .references(() => companies.id, { onDelete: "cascade" }),
+  lockedThrough: date("locked_through").notNull(),
+  lockedAt: timestamp("locked_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  lockedBy: uuid("locked_by")
+    .notNull()
+    .references(() => users.id),
+});
+
 export const accounts = pgTable(
   "accounts",
   {
@@ -152,11 +166,29 @@ export const voucherLines = pgTable(
   ]
 );
 
-export const companiesRelations = relations(companies, ({ many }) => ({
+export const companiesRelations = relations(companies, ({ many, one }) => ({
   accounts: many(accounts),
   voucherSeries: many(voucherSeries),
   vouchers: many(vouchers),
+  periodLock: one(companyPeriodLocks, {
+    fields: [companies.id],
+    references: [companyPeriodLocks.companyId],
+  }),
 }));
+
+export const companyPeriodLocksRelations = relations(
+  companyPeriodLocks,
+  ({ one }) => ({
+    company: one(companies, {
+      fields: [companyPeriodLocks.companyId],
+      references: [companies.id],
+    }),
+    lockedByUser: one(users, {
+      fields: [companyPeriodLocks.lockedBy],
+      references: [users.id],
+    }),
+  })
+);
 
 export const accountsRelations = relations(accounts, ({ one }) => ({
   company: one(companies, {
@@ -219,6 +251,7 @@ export const voucherLinesRelations = relations(voucherLines, ({ one }) => ({
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type Company = typeof companies.$inferSelect;
+export type CompanyPeriodLock = typeof companyPeriodLocks.$inferSelect;
 export type Account = typeof accounts.$inferSelect;
 export type VoucherSeries = typeof voucherSeries.$inferSelect;
 export type Voucher = typeof vouchers.$inferSelect;

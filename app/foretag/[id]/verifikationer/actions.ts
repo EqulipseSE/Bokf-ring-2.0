@@ -14,6 +14,8 @@ import { voucherNumberLabel } from "@/lib/money";
 import { persistVoucherUnderlag } from "@/lib/voucher-files";
 import { parseVoucherDate, todayIsoDate } from "@/lib/voucher-date";
 import { parseVatCode } from "@/lib/vat-codes";
+import { assertDateOpen, lockedPeriodError } from "@/lib/period-lock";
+import { getLockedThrough } from "@/lib/period-lock-query";
 import { LAST_VOUCHER_DATE_COOKIE, countCompanySeries } from "@/lib/vouchers";
 
 export type SaveVoucherLineInput = {
@@ -64,6 +66,9 @@ export async function saveVoucher(
     return { ok: false, error: parsedDate.error };
   }
   const date = parsedDate.iso;
+  const lockedThrough = await getLockedThrough(company.id);
+  const periodCheck = assertDateOpen(date, lockedThrough);
+  if (!periodCheck.ok) return periodCheck;
   const text = input.text.trim();
   if (!text) {
     return { ok: false, error: "Fyll i verifikationstext." };
@@ -228,6 +233,13 @@ export async function saveVoucher(
     if (err instanceof Error && err.message === "SERIES") {
       return { ok: false, error: "Verifikationsserie saknas." };
     }
+    if (err instanceof Error && err.message.includes("PERIOD_LOCKED")) {
+      const locked = await getLockedThrough(company.id);
+      return {
+        ok: false,
+        error: locked ? lockedPeriodError(locked) : "Perioden är låst.",
+      };
+    }
     throw err;
   }
 }
@@ -244,6 +256,18 @@ export async function attachVoucherUnderlag(
   if (!company) {
     return { ok: false, error: "Företaget finns inte." };
   }
+
+  const voucher = await db
+    .select({ date: vouchers.date })
+    .from(vouchers)
+    .where(and(eq(vouchers.id, voucherId), eq(vouchers.companyId, company.id)))
+    .limit(1);
+  if (!voucher[0]) {
+    return { ok: false, error: "Verifikationen finns inte." };
+  }
+  const lockedThrough = await getLockedThrough(company.id);
+  const periodCheck = assertDateOpen(voucher[0].date, lockedThrough);
+  if (!periodCheck.ok) return periodCheck;
 
   const stored = await persistVoucherUnderlag(company.id, voucherId, file);
   if (!stored.ok) return stored;

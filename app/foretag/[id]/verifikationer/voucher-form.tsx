@@ -6,6 +6,7 @@ import { VatCodeSelect } from "@/app/components/vat-code-select";
 import type { Account } from "@/lib/db/schema";
 import { formatOre, formatOreInput, parseAmountToOre } from "@/lib/money";
 import { UNDERLAG_ACCEPT, validateUnderlagMeta } from "@/lib/underlag";
+import { assertDateOpen, formatIsoDateSv } from "@/lib/period-lock";
 import { parseVoucherDate } from "@/lib/voucher-date";
 import { AccountSearch } from "./account-search";
 import { saveVoucher } from "./actions";
@@ -33,6 +34,7 @@ type VoucherFormProps = {
   defaultDate: string;
   nextNumberLabel: string;
   accountBalances: Record<string, number>;
+  lockedThrough: string | null;
 };
 
 function createLine(): LineDraft {
@@ -84,6 +86,7 @@ export function VoucherForm({
   defaultDate,
   nextNumberLabel,
   accountBalances,
+  lockedThrough,
 }: VoucherFormProps) {
   const [numberLabel, setNumberLabel] = useState(nextNumberLabel);
   const [dateInput, setDateInput] = useState(defaultDate);
@@ -182,6 +185,11 @@ export function VoucherForm({
     const parsed = parseVoucherDate(dateInput, anchorDate);
     if (!parsed.ok) {
       setDateError(parsed.error);
+      return null;
+    }
+    const periodCheck = assertDateOpen(parsed.iso, lockedThrough);
+    if (!periodCheck.ok) {
+      setDateError(periodCheck.error);
       return null;
     }
     setDateInput(parsed.iso);
@@ -371,6 +379,10 @@ export function VoucherForm({
               {dateError ? (
                 <p role="alert" className="mt-1 ml-[9.75rem] text-xs text-red-700">
                   {dateError}
+                </p>
+              ) : lockedThrough ? (
+                <p className="mt-1 ml-[9.75rem] text-xs text-neutral-500">
+                  Låst t.o.m. {formatIsoDateSv(lockedThrough)}
                 </p>
               ) : null}
             </div>

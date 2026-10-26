@@ -54,6 +54,19 @@ describe("menuGroups", () => {
     );
   });
 
+  it("lägger Periodlåsning under Bokföring", () => {
+    const groups = menuGroups(companyId);
+    const bokforing = groups.find((group) => group.id === "bokforing");
+    assert.deepEqual(
+      bokforing?.items.find((item) => item.label === "Periodlåsning"),
+      {
+        label: "Periodlåsning",
+        href: companyHref(companyId, "periodlasning"),
+        icon: "lock",
+      }
+    );
+  });
+
   it("behåller Balansrapport och Resultatrapport under Utskrifter", () => {
     const groups = menuGroups(companyId);
     const utskrifter = groups.find((group) => group.id === "utskrifter");

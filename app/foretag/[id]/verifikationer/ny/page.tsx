@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
+import { getLockedThrough } from "@/lib/period-lock-query";
 import { todayIsoDate } from "@/lib/voucher-date";
 import {
   LAST_VOUCHER_DATE_COOKIE,
@@ -20,6 +21,7 @@ export default async function NyVerifikationPage({
   const accounts = await listCompanyAccounts(id);
   const nextNumberLabel = await peekNextVoucherLabel(id);
   const accountBalances = await getAccountBalances(id);
+  const lockedThrough = await getLockedThrough(id);
   const cookieStore = await cookies();
   const storedDate = cookieStore.get(LAST_VOUCHER_DATE_COOKIE)?.value;
   const defaultDate =
@@ -35,6 +37,7 @@ export default async function NyVerifikationPage({
         defaultDate={defaultDate}
         nextNumberLabel={nextNumberLabel}
         accountBalances={accountBalances}
+        lockedThrough={lockedThrough}
       />
     </main>
   );

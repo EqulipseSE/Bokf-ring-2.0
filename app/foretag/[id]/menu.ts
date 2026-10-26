@@ -2,7 +2,6 @@ export const PLACEHOLDERS = {
   foretagsinstallningar: "Företagsinställningar",
   importexport: "Import/export",
   momskontroll: "Momskontroll",
-  periodlasning: "Periodlåsning",
   arsavslut: "Årsavslut",
   huvudbok: "Huvudbok",
 } as const;
@@ -22,6 +21,7 @@ export function companyHref(
     | "momsdeklaration"
     | "balansrapport"
     | "resultatrapport"
+    | "periodlasning"
 ): string {
   return `/foretag/${companyId}/${slug}`;
 }
