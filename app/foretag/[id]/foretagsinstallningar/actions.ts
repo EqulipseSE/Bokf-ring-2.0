@@ -12,6 +12,7 @@ import { getCompany } from "@/lib/company";
 import { db } from "@/lib/db";
 import { companies } from "@/lib/db/schema";
 import { isValidOrgNumber } from "@/lib/organisationsnummer";
+import { discardInvalidPeriodLock } from "@/lib/period-lock-query";
 
 export type UpdateCompanyState = { error: string } | { ok: true } | null;
 
@@ -53,6 +54,7 @@ export async function updateCompany(
         accountingMethod: accountingMethod.value,
       })
       .where(eq(companies.id, company.id));
+    await discardInvalidPeriodLock(company.id);
   } catch (err) {
     if (
       err instanceof Error &&

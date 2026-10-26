@@ -116,17 +116,31 @@ export function isDateLocked(
   return Boolean(lockedThrough && date <= lockedThrough);
 }
 
+/**
+ * Överblivna månadslås räknas inte vid kvartal/helår — bara giltiga
+ * periodslut (31 mar/30 jun/30 sep/31 dec eller 31 dec).
+ */
+export function effectiveLockedThrough(
+  lockedThrough: string | null | undefined,
+  kind: CompanyVatPeriod
+): string | null {
+  if (!lockedThrough) return null;
+  if (kind === "manad") return lockedThrough;
+  return isLockBoundary(lockedThrough, kind) ? lockedThrough : null;
+}
+
 export function periodLockStatus(
   kind: CompanyVatPeriod,
   year: number,
   number: number,
   lockedThrough: string | null | undefined
 ): MonthLockStatus {
-  if (!lockedThrough) return "open";
+  const effective = effectiveLockedThrough(lockedThrough, kind);
+  if (!effective) return "open";
   const from = periodStartIso(kind, year, number);
   const to = periodEndIso(kind, year, number);
-  if (lockedThrough >= to) return "locked";
-  if (lockedThrough >= from) return "partial";
+  if (effective >= to) return "locked";
+  if (kind === "manad" && effective >= from) return "partial";
   return "open";
 }
 
@@ -196,15 +210,16 @@ export function nextLockTarget(
   year: number,
   kind: CompanyVatPeriod = "manad"
 ): NextLockTarget {
-  if (!lockedThrough) {
+  const effective = effectiveLockedThrough(lockedThrough, kind);
+  if (!effective) {
     return lockTarget(kind, year, 1);
   }
-  const containing = periodContaining(lockedThrough, kind);
+  const containing = periodContaining(effective, kind);
   if (!containing) {
     return lockTarget(kind, year, 1);
   }
   const end = periodEndIso(kind, containing.year, containing.number);
-  if (lockedThrough < end) {
+  if (effective < end) {
     return lockTarget(kind, containing.year, containing.number);
   }
   if (containing.number >= periodCount(kind)) {
@@ -237,10 +252,11 @@ export function validateLockThrough(
     return { ok: false, error: "Ogiltigt datum." };
   }
   const through = `${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}`;
-  if (currentThrough && through <= currentThrough) {
+  const current = effectiveLockedThrough(currentThrough, kind);
+  if (current && through <= current) {
     return {
       ok: false,
-      error: `Redan låst t.o.m. ${formatIsoDateSv(currentThrough)}. Välj en senare period.`,
+      error: `Redan låst t.o.m. ${formatIsoDateSv(current)}. Välj en senare period.`,
     };
   }
   if (!isLockBoundary(through, kind)) {
@@ -260,6 +276,7 @@ export function buildPeriodRows(
   year: number,
   lockedThrough: string | null | undefined
 ): LockPeriodRow[] {
+  const effective = effectiveLockedThrough(lockedThrough, kind);
   const rows: LockPeriodRow[] = [];
   for (let number = 1; number <= periodCount(kind); number += 1) {
     const status = periodLockStatus(kind, year, number, lockedThrough);
@@ -270,7 +287,7 @@ export function buildPeriodRows(
       from: periodStartIso(kind, year, number),
       to: periodEndIso(kind, year, number),
       status,
-      statusLabel: periodStatusLabel(status, lockedThrough),
+      statusLabel: periodStatusLabel(status, effective),
     });
   }
   return rows;

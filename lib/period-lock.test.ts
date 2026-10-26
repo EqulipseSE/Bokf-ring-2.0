@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   assertDateOpen,
   buildPeriodRows,
+  effectiveLockedThrough,
   formatIsoDateSv,
   isDateLocked,
   isLockBoundary,
@@ -44,13 +45,34 @@ describe("periodLockStatus", () => {
   it("låser hela kvartal, inte enstaka månader", () => {
     assert.equal(periodLockStatus("kvartal", 2026, 1, "2026-03-31"), "locked");
     assert.equal(periodLockStatus("kvartal", 2026, 2, "2026-03-31"), "open");
-    assert.equal(periodLockStatus("kvartal", 2026, 1, "2026-02-15"), "partial");
+    assert.equal(periodLockStatus("kvartal", 2026, 1, "2026-02-15"), "open");
+    assert.equal(periodLockStatus("kvartal", 2026, 1, "2026-01-31"), "open");
   });
 
   it("låser hela året vid helårsmoms", () => {
     assert.equal(periodLockStatus("ar", 2026, 1, "2026-12-31"), "locked");
-    assert.equal(periodLockStatus("ar", 2026, 1, "2026-06-30"), "partial");
+    assert.equal(periodLockStatus("ar", 2026, 1, "2026-06-30"), "open");
     assert.equal(periodLockStatus("ar", 2027, 1, "2026-12-31"), "open");
+  });
+
+  it("ignorerar överblivna månadslås vid kvartal och helår", () => {
+    assert.equal(effectiveLockedThrough("2026-01-31", "kvartal"), null);
+    assert.equal(effectiveLockedThrough("2026-06-30", "ar"), null);
+    assert.equal(effectiveLockedThrough("2026-01-31", "manad"), "2026-01-31");
+    assert.equal(effectiveLockedThrough("2026-03-31", "kvartal"), "2026-03-31");
+    assert.deepEqual(nextLockTarget("2026-01-31", 2026, "kvartal"), {
+      year: 2026,
+      number: 1,
+      through: "2026-03-31",
+      label: "kvartal 1 2026 (jan–mar)",
+    });
+    const leftover = buildPeriodRows("kvartal", 2026, "2026-01-31");
+    assert.equal(leftover[0]?.status, "open");
+    assert.equal(leftover[0]?.statusLabel, "Öppen");
+    assert.equal(
+      leftover.some((row) => row.statusLabel.includes("Delvis")),
+      false
+    );
   });
 });
 
@@ -141,6 +163,9 @@ describe("buildPeriodRows / format", () => {
     assert.equal(months[0]?.statusLabel, "Låst");
     assert.equal(months[1]?.statusLabel, "Delvis låst t.o.m. 10 februari 2026");
     assert.equal(months[2]?.statusLabel, "Öppen");
+
+    const leftoverMonth = buildPeriodRows("kvartal", 2026, "2026-01-31");
+    assert.equal(leftoverMonth[0]?.statusLabel, "Öppen");
 
     const quarters = buildPeriodRows("kvartal", 2026, "2026-03-31");
     assert.equal(quarters.length, 4);

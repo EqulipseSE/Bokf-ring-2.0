@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { companies, companyPeriodLocks, vouchers } from "@/lib/db/schema";
 import {
   buildPeriodRows,
+  effectiveLockedThrough,
   lockablePeriods,
   monthsInPeriod,
   nextLockTarget,
@@ -18,15 +19,44 @@ import { availableYears } from "@/lib/vat-declaration";
 import { listVoucherYears } from "@/lib/vat-declaration-query";
 import { todayIsoDate } from "@/lib/voucher-date";
 
-export async function getLockedThrough(
+async function companyVatKind(companyId: string) {
+  const [company] = await db
+    .select({ vatPeriod: companies.vatPeriod })
+    .from(companies)
+    .where(eq(companies.id, companyId))
+    .limit(1);
+  const parsed = parseVatPeriodKind(company?.vatPeriod ?? "manad");
+  return parsed.ok ? parsed.value : "manad";
+}
+
+/** Tar bort månadslås som inte är ett giltigt periodslut för nuvarande momsperiod. */
+export async function discardInvalidPeriodLock(
   companyId: string
-): Promise<string | null> {
+): Promise<void> {
+  const kind = await companyVatKind(companyId);
   const [row] = await db
     .select({ lockedThrough: companyPeriodLocks.lockedThrough })
     .from(companyPeriodLocks)
     .where(eq(companyPeriodLocks.companyId, companyId))
     .limit(1);
-  return row?.lockedThrough ?? null;
+  if (!row) return;
+  if (effectiveLockedThrough(row.lockedThrough, kind)) return;
+  await db
+    .delete(companyPeriodLocks)
+    .where(eq(companyPeriodLocks.companyId, companyId));
+}
+
+export async function getLockedThrough(
+  companyId: string
+): Promise<string | null> {
+  await discardInvalidPeriodLock(companyId);
+  const kind = await companyVatKind(companyId);
+  const [row] = await db
+    .select({ lockedThrough: companyPeriodLocks.lockedThrough })
+    .from(companyPeriodLocks)
+    .where(eq(companyPeriodLocks.companyId, companyId))
+    .limit(1);
+  return effectiveLockedThrough(row?.lockedThrough ?? null, kind);
 }
 
 export async function getPeriodLockView(
@@ -53,7 +83,13 @@ export async function getPeriodLockView(
 
   const parsedKind = parseVatPeriodKind(company[0]?.vatPeriod ?? "manad");
   const kind = parsedKind.ok ? parsedKind.value : "manad";
-  const lockedThrough = lock[0]?.lockedThrough ?? null;
+  const rawThrough = lock[0]?.lockedThrough ?? null;
+  if (rawThrough && !effectiveLockedThrough(rawThrough, kind)) {
+    await db
+      .delete(companyPeriodLocks)
+      .where(eq(companyPeriodLocks.companyId, companyId));
+  }
+  const lockedThrough = effectiveLockedThrough(rawThrough, kind);
   const next = nextLockTarget(lockedThrough, Number(today.slice(0, 4)), kind);
   const years = availableYears(today, [
     ...voucherYears,
@@ -117,6 +153,7 @@ export async function savePeriodLock(
     .limit(1);
   const parsedKind = parseVatPeriodKind(company?.vatPeriod ?? "manad");
   const kind = parsedKind.ok ? parsedKind.value : "manad";
+  await discardInvalidPeriodLock(companyId);
   const current = await getLockedThrough(companyId);
   const parsed = validateLockThrough(nextThrough, current, kind);
   if (!parsed.ok) return parsed;
