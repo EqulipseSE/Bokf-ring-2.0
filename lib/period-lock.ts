@@ -1,3 +1,5 @@
+import type { CompanyVatPeriod } from "@/lib/company-settings";
+import { VAT_PERIOD_LABELS } from "@/lib/company-settings";
 import {
   MONTH_NAMES,
   lastDayOfMonth,
@@ -6,10 +8,10 @@ import {
 
 export type MonthLockStatus = "open" | "locked" | "partial";
 
-export type MonthLockRow = {
+export type LockPeriodRow = {
   year: number;
-  month: number;
-  name: string;
+  number: number;
+  label: string;
   from: string;
   to: string;
   status: MonthLockStatus;
@@ -18,19 +20,29 @@ export type MonthLockRow = {
 
 export type NextLockTarget = {
   year: number;
-  month: number;
+  number: number;
   through: string;
+  label: string;
 };
 
 export type PeriodLockPageData = {
+  kind: CompanyVatPeriod;
+  kindLabel: string;
   year: number;
   years: number[];
   lockedThrough: string | null;
   lockedAt: Date | null;
   next: NextLockTarget;
-  months: (MonthLockRow & { voucherCount: number })[];
-  lockable: { year: number; month: number; through: string; label: string }[];
+  periods: (LockPeriodRow & { voucherCount: number })[];
+  lockable: NextLockTarget[];
 };
+
+const QUARTERS = [
+  { number: 1, start: 1, end: 3, short: "jan–mar" },
+  { number: 2, start: 4, end: 6, short: "apr–jun" },
+  { number: 3, start: 7, end: 9, short: "jul–sep" },
+  { number: 4, start: 10, end: 12, short: "okt–dec" },
+] as const;
 
 function pad2(n: number): string {
   return String(n).padStart(2, "0");
@@ -44,6 +56,59 @@ export function monthEndIso(year: number, month: number): string {
   return `${year}-${pad2(month)}-${pad2(lastDayOfMonth(year, month))}`;
 }
 
+export function periodCount(kind: CompanyVatPeriod): number {
+  if (kind === "kvartal") return 4;
+  if (kind === "ar") return 1;
+  return 12;
+}
+
+export function periodStartIso(
+  kind: CompanyVatPeriod,
+  year: number,
+  number: number
+): string {
+  if (kind === "ar") return `${year}-01-01`;
+  if (kind === "kvartal") {
+    const quarter = QUARTERS[clampPeriod(kind, number) - 1];
+    return monthStartIso(year, quarter.start);
+  }
+  return monthStartIso(year, clampPeriod(kind, number));
+}
+
+export function periodEndIso(
+  kind: CompanyVatPeriod,
+  year: number,
+  number: number
+): string {
+  if (kind === "ar") return `${year}-12-31`;
+  if (kind === "kvartal") {
+    const quarter = QUARTERS[clampPeriod(kind, number) - 1];
+    return monthEndIso(year, quarter.end);
+  }
+  return monthEndIso(year, clampPeriod(kind, number));
+}
+
+export function periodLabel(
+  kind: CompanyVatPeriod,
+  year: number,
+  number: number
+): string {
+  const n = clampPeriod(kind, number);
+  if (kind === "ar") return `helår ${year}`;
+  if (kind === "kvartal") {
+    const quarter = QUARTERS[n - 1];
+    return `kvartal ${n} ${year} (${quarter.short})`;
+  }
+  return `${MONTH_NAMES[n - 1]} ${year}`;
+}
+
+function clampPeriod(kind: CompanyVatPeriod, number: number): number {
+  const max = periodCount(kind);
+  if (!Number.isInteger(number) || number < 1) return 1;
+  if (number > max) return max;
+  return number;
+}
+
 export function isDateLocked(
   date: string,
   lockedThrough: string | null | undefined
@@ -51,32 +116,29 @@ export function isDateLocked(
   return Boolean(lockedThrough && date <= lockedThrough);
 }
 
-export function monthLockStatus(
+export function periodLockStatus(
+  kind: CompanyVatPeriod,
   year: number,
-  month: number,
+  number: number,
   lockedThrough: string | null | undefined
 ): MonthLockStatus {
   if (!lockedThrough) return "open";
-  const from = monthStartIso(year, month);
-  const to = monthEndIso(year, month);
+  const from = periodStartIso(kind, year, number);
+  const to = periodEndIso(kind, year, number);
   if (lockedThrough >= to) return "locked";
   if (lockedThrough >= from) return "partial";
   return "open";
 }
 
-export function monthStatusLabel(
+export function periodStatusLabel(
   status: MonthLockStatus,
-  lockedThrough: string | null | undefined,
-  year: number,
-  month: number
+  lockedThrough: string | null | undefined
 ): string {
   if (status === "locked") return "Låst";
   if (status === "partial" && lockedThrough) {
     return `Delvis låst t.o.m. ${formatIsoDateSv(lockedThrough)}`;
   }
   if (status === "partial") return "Delvis låst";
-  void year;
-  void month;
   return "Öppen";
 }
 
@@ -84,10 +146,6 @@ export function formatIsoDateSv(iso: string): string {
   const parts = parseIsoDateParts(iso);
   if (!parts) return iso;
   return `${parts.day} ${MONTH_NAMES[parts.month - 1]} ${parts.year}`;
-}
-
-export function formatMonthYear(year: number, month: number): string {
-  return `${MONTH_NAMES[month - 1]} ${year}`;
 }
 
 export function lockedPeriodError(lockedThrough: string): string {
@@ -104,54 +162,75 @@ export function assertDateOpen(
   return { ok: false, error: lockedPeriodError(lockedThrough) };
 }
 
-/** Nästa låspunkt framifrån: resten av delvis låst månad, annars nästa månad. */
-export function nextLockTarget(
-  lockedThrough: string | null | undefined,
-  year: number
-): NextLockTarget {
-  if (!lockedThrough) {
-    return {
-      year,
-      month: 1,
-      through: monthEndIso(year, 1),
-    };
+export function isLockBoundary(
+  iso: string,
+  kind: CompanyVatPeriod
+): boolean {
+  const parts = parseIsoDateParts(iso);
+  if (!parts) return false;
+  const end = lastDayOfMonth(parts.year, parts.month);
+  if (parts.day !== end) return false;
+  if (kind === "manad") return true;
+  if (kind === "kvartal") {
+    return parts.month === 3 || parts.month === 6 || parts.month === 9 || parts.month === 12;
   }
-
-  const parts = parseIsoDateParts(lockedThrough);
-  if (!parts) {
-    return { year, month: 1, through: monthEndIso(year, 1) };
-  }
-
-  const end = monthEndIso(parts.year, parts.month);
-  if (lockedThrough < end) {
-    return {
-      year: parts.year,
-      month: parts.month,
-      through: end,
-    };
-  }
-
-  if (parts.month === 12) {
-    return {
-      year: parts.year + 1,
-      month: 1,
-      through: monthEndIso(parts.year + 1, 1),
-    };
-  }
-  return {
-    year: parts.year,
-    month: parts.month + 1,
-    through: monthEndIso(parts.year, parts.month + 1),
-  };
+  return parts.month === 12;
 }
 
-export function lockThroughMonth(year: number, month: number): string {
-  return monthEndIso(year, month);
+export function periodContaining(
+  iso: string,
+  kind: CompanyVatPeriod
+): { year: number; number: number } | null {
+  const parts = parseIsoDateParts(iso);
+  if (!parts) return null;
+  if (kind === "ar") return { year: parts.year, number: 1 };
+  if (kind === "kvartal") {
+    return { year: parts.year, number: Math.ceil(parts.month / 3) };
+  }
+  return { year: parts.year, number: parts.month };
+}
+
+/** Nästa låspunkt framifrån enligt företagets momsperiod. */
+export function nextLockTarget(
+  lockedThrough: string | null | undefined,
+  year: number,
+  kind: CompanyVatPeriod = "manad"
+): NextLockTarget {
+  if (!lockedThrough) {
+    return lockTarget(kind, year, 1);
+  }
+  const containing = periodContaining(lockedThrough, kind);
+  if (!containing) {
+    return lockTarget(kind, year, 1);
+  }
+  const end = periodEndIso(kind, containing.year, containing.number);
+  if (lockedThrough < end) {
+    return lockTarget(kind, containing.year, containing.number);
+  }
+  if (containing.number >= periodCount(kind)) {
+    return lockTarget(kind, containing.year + 1, 1);
+  }
+  return lockTarget(kind, containing.year, containing.number + 1);
+}
+
+export function lockTarget(
+  kind: CompanyVatPeriod,
+  year: number,
+  number: number
+): NextLockTarget {
+  const n = clampPeriod(kind, number);
+  return {
+    year,
+    number: n,
+    through: periodEndIso(kind, year, n),
+    label: periodLabel(kind, year, n),
+  };
 }
 
 export function validateLockThrough(
   nextThrough: string,
-  currentThrough: string | null | undefined
+  currentThrough: string | null | undefined,
+  kind: CompanyVatPeriod = "manad"
 ): { ok: true; through: string } | { ok: false; error: string } {
   const parts = parseIsoDateParts(nextThrough);
   if (!parts) {
@@ -161,56 +240,61 @@ export function validateLockThrough(
   if (currentThrough && through <= currentThrough) {
     return {
       ok: false,
-      error: `Redan låst t.o.m. ${formatIsoDateSv(currentThrough)}. Välj ett senare datum.`,
+      error: `Redan låst t.o.m. ${formatIsoDateSv(currentThrough)}. Välj en senare period.`,
     };
+  }
+  if (!isLockBoundary(through, kind)) {
+    if (kind === "kvartal") {
+      return { ok: false, error: "Vid kvartalsmoms låses bara hela kvartal." };
+    }
+    if (kind === "ar") {
+      return { ok: false, error: "Vid helårsmoms låses hela året." };
+    }
+    return { ok: false, error: "Vid månadsmoms låses hela månader." };
   }
   return { ok: true, through };
 }
 
-export function buildMonthRows(
+export function buildPeriodRows(
+  kind: CompanyVatPeriod,
   year: number,
   lockedThrough: string | null | undefined
-): MonthLockRow[] {
-  return MONTH_NAMES.map((name, index) => {
-    const month = index + 1;
-    const status = monthLockStatus(year, month, lockedThrough);
-    return {
+): LockPeriodRow[] {
+  const rows: LockPeriodRow[] = [];
+  for (let number = 1; number <= periodCount(kind); number += 1) {
+    const status = periodLockStatus(kind, year, number, lockedThrough);
+    rows.push({
       year,
-      month,
-      name,
-      from: monthStartIso(year, month),
-      to: monthEndIso(year, month),
+      number,
+      label: periodLabel(kind, year, number),
+      from: periodStartIso(kind, year, number),
+      to: periodEndIso(kind, year, number),
       status,
-      statusLabel: monthStatusLabel(status, lockedThrough, year, month),
-    };
-  });
+      statusLabel: periodStatusLabel(status, lockedThrough),
+    });
+  }
+  return rows;
 }
 
-/** Månader som går att låsa till (framifrån, från nästa öppna t.o.m. årets slut). */
-export function lockableMonths(
+export function lockablePeriods(
+  kind: CompanyVatPeriod,
   year: number,
   lockedThrough: string | null | undefined
-): { year: number; month: number; through: string; label: string }[] {
-  const next = nextLockTarget(lockedThrough, year);
-  const options: { year: number; month: number; through: string; label: string }[] =
-    [];
-
+): NextLockTarget[] {
+  const next = nextLockTarget(lockedThrough, year, kind);
+  const options: NextLockTarget[] = [];
   let cursorYear = next.year;
-  let cursorMonth = next.month;
-  while (cursorYear < year || (cursorYear === year && cursorMonth <= 12)) {
+  let cursorNumber = next.number;
+  const max = periodCount(kind);
+  while (cursorYear < year || (cursorYear === year && cursorNumber <= max)) {
     if (cursorYear === year) {
-      options.push({
-        year: cursorYear,
-        month: cursorMonth,
-        through: monthEndIso(cursorYear, cursorMonth),
-        label: formatMonthYear(cursorYear, cursorMonth),
-      });
+      options.push(lockTarget(kind, cursorYear, cursorNumber));
     }
-    if (cursorMonth === 12) {
+    if (cursorNumber >= max) {
       cursorYear += 1;
-      cursorMonth = 1;
+      cursorNumber = 1;
     } else {
-      cursorMonth += 1;
+      cursorNumber += 1;
     }
     if (cursorYear > year) break;
   }
@@ -225,4 +309,23 @@ export function parseYearQuery(
   const year = Number(raw);
   if (!Number.isInteger(year) || year < 1990 || year > 2100) return fallback;
   return year;
+}
+
+export function vatLockKindLabel(kind: CompanyVatPeriod): string {
+  return VAT_PERIOD_LABELS[kind];
+}
+
+/** Månader som ingår i en låsperiod, för att summera verifikationer. */
+export function monthsInPeriod(
+  kind: CompanyVatPeriod,
+  number: number
+): number[] {
+  if (kind === "ar") {
+    return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  }
+  if (kind === "kvartal") {
+    const quarter = QUARTERS[clampPeriod(kind, number) - 1];
+    return [quarter.start, quarter.start + 1, quarter.end];
+  }
+  return [clampPeriod(kind, number)];
 }

@@ -5,6 +5,7 @@ import { asc } from "drizzle-orm";
 import { AppHeader } from "@/app/components/app-header";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { accountingMethodLabel } from "@/lib/company-settings";
 import { companies } from "@/lib/db/schema";
 
 export const metadata: Metadata = {
@@ -62,6 +63,7 @@ export default async function KlientforetagPage() {
                 <tr className="border-b border-neutral-200 text-xs uppercase tracking-wide text-neutral-500">
                   <th className="px-6 py-3.5 font-medium">Företag</th>
                   <th className="px-6 py-3.5 font-medium">Org.nr</th>
+                  <th className="px-6 py-3.5 font-medium">Redovisningsmetod</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
@@ -85,6 +87,15 @@ export default async function KlientforetagPage() {
                         className="block px-6 py-4 tabular-nums text-neutral-500"
                       >
                         {company.orgNumber}
+                      </Link>
+                    </td>
+                    <td className="p-0">
+                      <Link
+                        href={`/foretag/${company.id}`}
+                        tabIndex={-1}
+                        className="block px-6 py-4 text-neutral-700"
+                      >
+                        {accountingMethodLabel(company.accountingMethod)}
                       </Link>
                     </td>
                   </tr>

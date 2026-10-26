@@ -1,12 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   formatIsoDateSv,
-  formatMonthYear,
-  lockThroughMonth,
-  type NextLockTarget,
   type PeriodLockPageData,
 } from "@/lib/period-lock";
 import { companyHref } from "../menu";
@@ -30,24 +27,17 @@ export function PeriodLockView({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [mode, setMode] = useState<"month" | "date">("month");
-  const defaultMonth = view.lockable[0]?.month ?? view.next.month;
-  const [month, setMonth] = useState(defaultMonth);
-  const [date, setDate] = useState(view.next.through);
+  const [through, setThrough] = useState(
+    view.lockable[0]?.through ?? view.next.through
+  );
 
   useEffect(() => {
-    setMonth(view.lockable[0]?.month ?? view.next.month);
-    setDate(view.next.through);
+    setThrough(view.lockable[0]?.through ?? view.next.through);
   }, [view.lockable, view.next]);
 
-  const selectedThrough = useMemo(() => {
-    if (mode === "date") return date;
-    return lockThroughMonth(view.year, month);
-  }, [mode, date, view.year, month]);
-
-  const canLock =
-    view.lockable.length > 0 ||
-    (mode === "date" && selectedThrough > (view.lockedThrough ?? ""));
+  const selected =
+    view.lockable.find((option) => option.through === through) ?? view.next;
+  const canLock = view.lockable.length > 0;
 
   function goYear(year: number) {
     router.push(`${companyHref(companyId, "periodlasning")}?ar=${year}`);
@@ -58,7 +48,7 @@ export function PeriodLockView({
     setError(null);
     setNotice(null);
     startTransition(async () => {
-      const result = await lockPeriod(companyId, selectedThrough);
+      const result = await lockPeriod(companyId, selected.through);
       if (!result.ok) {
         setError(result.error);
         return;
@@ -66,6 +56,13 @@ export function PeriodLockView({
       setNotice(`Låst t.o.m. ${formatIsoDateSv(result.lockedThrough)}.`);
     });
   }
+
+  const unit =
+    view.kind === "kvartal"
+      ? "kvartal"
+      : view.kind === "ar"
+        ? "år"
+        : "månad";
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
@@ -77,6 +74,8 @@ export function PeriodLockView({
           {companyName}
           <span className="mx-2 text-neutral-300">·</span>
           <span className="tabular-nums">{orgNumber}</span>
+          <span className="mx-2 text-neutral-300">·</span>
+          Momsperiod {view.kindLabel.toLowerCase()}
         </p>
       </div>
 
@@ -96,60 +95,27 @@ export function PeriodLockView({
                 Inga perioder är låsta
               </span>
               <span className="mx-2 text-neutral-300">·</span>
-              Lås framifrån, en månad i taget eller till och med valt datum.
+              Lås framifrån, ett {unit} i taget enligt momsperioden.
             </>
           )}
         </p>
 
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
-            Lås
+            Lås till och med
             <select
-              value={mode}
-              onChange={(event) =>
-                setMode(event.target.value as "month" | "date")
-              }
+              value={through}
+              onChange={(event) => setThrough(event.target.value)}
               className={fieldClass}
+              disabled={!canLock}
             >
-              <option value="month">till och med månad</option>
-              <option value="date">till och med datum</option>
+              {(canLock ? view.lockable : [view.next]).map((option) => (
+                <option key={option.through} value={option.through}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </label>
-
-          {mode === "month" ? (
-            <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
-              Månad
-              <select
-                value={month}
-                onChange={(event) => setMonth(Number(event.target.value))}
-                className={fieldClass}
-                disabled={view.lockable.length === 0}
-              >
-                {view.lockable.length === 0 ? (
-                  <option value={defaultMonth}>
-                    {formatMonthYear(view.next.year, view.next.month)}
-                  </option>
-                ) : (
-                  view.lockable.map((option) => (
-                    <option key={option.through} value={option.month}>
-                      {option.label}
-                    </option>
-                  ))
-                )}
-              </select>
-            </label>
-          ) : (
-            <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
-              Datum
-              <input
-                type="date"
-                value={date}
-                min={view.next.through}
-                onChange={(event) => setDate(event.target.value)}
-                className={`${fieldClass} tabular-nums`}
-              />
-            </label>
-          )}
 
           <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
             År
@@ -178,9 +144,13 @@ export function PeriodLockView({
         </div>
 
         <p className="mt-3 text-xs leading-relaxed text-neutral-500">
-          Perioder låses alltid framifrån. Väljer du{" "}
-          {lockLabel(view.next, selectedThrough)} låses alla datum t.o.m.{" "}
-          {formatIsoDateSv(selectedThrough)}. Inget årsavslut.
+          {view.kind === "kvartal"
+            ? "Kvartalsmoms: bara hela kvartal (jan–mar, apr–jun, jul–sep, okt–dec)."
+            : view.kind === "ar"
+              ? "Helårsmoms: ett lock låser hela kalenderåret."
+              : "Månadsmoms: lås en månad i taget framifrån."}{" "}
+          Väljer du {selected.label} låses alla datum t.o.m.{" "}
+          {formatIsoDateSv(selected.through)}. Inget årsavslut.
         </p>
 
         {error ? (
@@ -199,7 +169,7 @@ export function PeriodLockView({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-neutral-200 bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500">
-              <th className="px-4 py-2.5 text-left font-medium">Månad</th>
+              <th className="px-4 py-2.5 text-left font-medium">Period</th>
               <th className="px-4 py-2.5 text-left font-medium">Status</th>
               <th className="px-4 py-2.5 text-right font-medium">
                 Verifikationer
@@ -207,9 +177,9 @@ export function PeriodLockView({
             </tr>
           </thead>
           <tbody>
-            {view.months.map((row) => (
+            {view.periods.map((row) => (
               <tr
-                key={row.month}
+                key={row.number}
                 className={`border-t border-neutral-100 ${
                   row.status === "locked"
                     ? "bg-neutral-50"
@@ -218,9 +188,7 @@ export function PeriodLockView({
                       : ""
                 }`}
               >
-                <td className="px-4 py-2 capitalize text-neutral-900">
-                  {row.name}
-                </td>
+                <td className="px-4 py-2 text-neutral-900">{row.label}</td>
                 <td className="px-4 py-2">
                   <span
                     className={
@@ -244,11 +212,4 @@ export function PeriodLockView({
       </div>
     </main>
   );
-}
-
-function lockLabel(next: NextLockTarget, through: string): string {
-  if (through === next.through) {
-    return formatMonthYear(next.year, next.month);
-  }
-  return formatIsoDateSv(through);
 }

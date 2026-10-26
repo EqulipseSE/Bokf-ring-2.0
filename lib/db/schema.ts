@@ -40,6 +40,10 @@ export const companies = pgTable("companies", {
   name: text("name").notNull(),
   // Format NNNNNN-NNNN, valideras i lib/organisationsnummer.ts.
   orgNumber: text("org_number").notNull().unique(),
+  // manad | kvartal | ar — styr periodlåsning och momsdeklaration.
+  vatPeriod: text("vat_period").notNull().default("manad"),
+  // faktura | kontant — sparas nu, används av AI-bokföring senare.
+  accountingMethod: text("accounting_method").notNull().default("faktura"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

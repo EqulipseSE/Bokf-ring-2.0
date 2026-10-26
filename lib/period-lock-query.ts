@@ -1,14 +1,17 @@
 import "server-only";
 
 import { and, eq, sql } from "drizzle-orm";
+import { parseVatPeriodKind } from "@/lib/company-settings";
 import { db } from "@/lib/db";
-import { companyPeriodLocks, vouchers } from "@/lib/db/schema";
+import { companies, companyPeriodLocks, vouchers } from "@/lib/db/schema";
 import {
-  buildMonthRows,
-  lockableMonths,
+  buildPeriodRows,
+  lockablePeriods,
+  monthsInPeriod,
   nextLockTarget,
   parseYearQuery,
   validateLockThrough,
+  vatLockKindLabel,
   type PeriodLockPageData,
 } from "@/lib/period-lock";
 import { availableYears } from "@/lib/vat-declaration";
@@ -31,7 +34,12 @@ export async function getPeriodLockView(
   yearQuery?: string | string[]
 ): Promise<PeriodLockPageData> {
   const today = todayIsoDate();
-  const [lock, voucherYears] = await Promise.all([
+  const [company, lock, voucherYears] = await Promise.all([
+    db
+      .select({ vatPeriod: companies.vatPeriod })
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .limit(1),
     db
       .select({
         lockedThrough: companyPeriodLocks.lockedThrough,
@@ -43,8 +51,10 @@ export async function getPeriodLockView(
     listVoucherYears(companyId),
   ]);
 
+  const parsedKind = parseVatPeriodKind(company[0]?.vatPeriod ?? "manad");
+  const kind = parsedKind.ok ? parsedKind.value : "manad";
   const lockedThrough = lock[0]?.lockedThrough ?? null;
-  const next = nextLockTarget(lockedThrough, Number(today.slice(0, 4)));
+  const next = nextLockTarget(lockedThrough, Number(today.slice(0, 4)), kind);
   const years = availableYears(today, [
     ...voucherYears,
     next.year,
@@ -72,19 +82,24 @@ export async function getPeriodLockView(
     countByMonth.set(Number(row.month), Number(row.n));
   }
 
-  const months = buildMonthRows(year, lockedThrough).map((row) => ({
+  const periods = buildPeriodRows(kind, year, lockedThrough).map((row) => ({
     ...row,
-    voucherCount: countByMonth.get(row.month) ?? 0,
+    voucherCount: monthsInPeriod(kind, row.number).reduce(
+      (sum, month) => sum + (countByMonth.get(month) ?? 0),
+      0
+    ),
   }));
 
   return {
+    kind,
+    kindLabel: vatLockKindLabel(kind),
     year,
     years,
     lockedThrough,
     lockedAt: lock[0]?.lockedAt ?? null,
     next,
-    months,
-    lockable: lockableMonths(year, lockedThrough),
+    periods,
+    lockable: lockablePeriods(kind, year, lockedThrough),
   };
 }
 
@@ -95,8 +110,15 @@ export async function savePeriodLock(
 ): Promise<
   { ok: true; lockedThrough: string } | { ok: false; error: string }
 > {
+  const [company] = await db
+    .select({ vatPeriod: companies.vatPeriod })
+    .from(companies)
+    .where(eq(companies.id, companyId))
+    .limit(1);
+  const parsedKind = parseVatPeriodKind(company?.vatPeriod ?? "manad");
+  const kind = parsedKind.ok ? parsedKind.value : "manad";
   const current = await getLockedThrough(companyId);
-  const parsed = validateLockThrough(nextThrough, current);
+  const parsed = validateLockThrough(nextThrough, current, kind);
   if (!parsed.ok) return parsed;
 
   if (current) {

@@ -50,6 +50,13 @@
       "when": 1793041153328,
       "tag": "0006_sleepy_molten_man",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793043202673,
+      "tag": "0007_chunky_gideon",
+      "breakpoints": true
     }
   ]
 }
