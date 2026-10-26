@@ -4,6 +4,7 @@ import {
   EMPTY_CLIENT_CELL,
   formatClientLatestDate,
   latestVoucherByCompany,
+  sortClientsByStatus,
 } from "./client-list";
 
 describe("latestVoucherByCompany", () => {
@@ -28,5 +29,23 @@ describe("formatClientLatestDate", () => {
     assert.equal(formatClientLatestDate("2026-10-05"), "2026-10-05");
     assert.equal(formatClientLatestDate(null), EMPTY_CLIENT_CELL);
     assert.equal(formatClientLatestDate(""), EMPTY_CLIENT_CELL);
+  });
+});
+
+describe("sortClientsByStatus", () => {
+  it("sorterar på status och namn, samma pilriktning", () => {
+    const rows = [
+      { name: "Beta", status: "red" },
+      { name: "Alfa", status: "green" },
+      { name: "Gamma", status: "green" },
+    ];
+    assert.deepEqual(
+      sortClientsByStatus(rows, "asc").map((row) => row.name),
+      ["Alfa", "Gamma", "Beta"]
+    );
+    assert.deepEqual(
+      sortClientsByStatus(rows, "desc").map((row) => row.name),
+      ["Beta", "Gamma", "Alfa"]
+    );
   });
 });

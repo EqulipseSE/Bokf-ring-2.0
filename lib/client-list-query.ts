@@ -2,19 +2,15 @@ import "server-only";
 
 import { asc, eq } from "drizzle-orm";
 import {
+  CLIENT_STATUS_PLACEHOLDER,
   formatClientLatestDate,
   latestVoucherByCompany,
+  type ClientListRow,
 } from "@/lib/client-list";
 import { db } from "@/lib/db";
 import { companies, vouchers } from "@/lib/db/schema";
 
-export type ClientListRow = {
-  id: string;
-  name: string;
-  orgNumber: string;
-  accountingMethod: string;
-  latestVoucherDate: string;
-};
+export type { ClientListRow };
 
 export async function listClientRows(): Promise<ClientListRow[]> {
   const [rows, voucherRows] = await Promise.all([
@@ -37,5 +33,6 @@ export async function listClientRows(): Promise<ClientListRow[]> {
     orgNumber: company.orgNumber,
     accountingMethod: company.accountingMethod,
     latestVoucherDate: formatClientLatestDate(latest.get(company.id)?.date),
+    status: CLIENT_STATUS_PLACEHOLDER,
   }));
 }

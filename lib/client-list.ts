@@ -1,5 +1,14 @@
 export const EMPTY_CLIENT_CELL = "—";
 
+export type ClientListRow = {
+  id: string;
+  name: string;
+  orgNumber: string;
+  accountingMethod: string;
+  latestVoucherDate: string;
+  status: string;
+};
+
 export type LatestVoucherHint = {
   companyId: string;
   number: number;
@@ -28,4 +37,19 @@ export function formatClientLatestDate(
   date: string | null | undefined
 ): string {
   return date?.trim() ? date : EMPTY_CLIENT_CELL;
+}
+
+export const CLIENT_STATUS_PLACEHOLDER = "placeholder";
+
+export type ClientStatusSort = "asc" | "desc";
+
+export function sortClientsByStatus<
+  T extends { name: string; status: string },
+>(rows: T[], direction: ClientStatusSort): T[] {
+  const sign = direction === "asc" ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    const statusCmp = a.status.localeCompare(b.status, "sv");
+    if (statusCmp !== 0) return statusCmp * sign;
+    return a.name.localeCompare(b.name, "sv") * sign;
+  });
 }
