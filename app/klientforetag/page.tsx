@@ -1,31 +1,40 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { asc } from "drizzle-orm";
 import { AppHeader } from "@/app/components/app-header";
 import { getCurrentUser } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { listClientRows } from "@/lib/client-list-query";
 import { accountingMethodLabel } from "@/lib/company-settings";
-import { companies } from "@/lib/db/schema";
 
 export const metadata: Metadata = {
   title: "Klientföretag — Omnio",
 };
 
+function StatusPlaceholder() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-1.5 py-1"
+      title="Status kommer senare"
+      aria-label="Status, platshållare"
+    >
+      <span className="size-2.5 rounded-full bg-neutral-300" />
+      <span className="size-2.5 rounded-full bg-neutral-300" />
+      <span className="size-2.5 rounded-full bg-neutral-300" />
+    </span>
+  );
+}
+
 export default async function KlientforetagPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/logga-in");
 
-  const clients = await db
-    .select()
-    .from(companies)
-    .orderBy(asc(companies.name));
+  const clients = await listClientRows();
 
   return (
     <div className="flex flex-1 flex-col bg-neutral-50">
       <AppHeader userName={user.name} />
 
-      <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
+      <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-12">
         <div className="mb-8 flex items-end justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">
@@ -61,9 +70,14 @@ export default async function KlientforetagPage() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-neutral-200 text-xs uppercase tracking-wide text-neutral-500">
-                  <th className="px-6 py-3.5 font-medium">Företag</th>
-                  <th className="px-6 py-3.5 font-medium">Org.nr</th>
-                  <th className="px-6 py-3.5 font-medium">Redovisningsmetod</th>
+                  <th className="px-5 py-3.5 font-medium">Företag</th>
+                  <th className="px-5 py-3.5 font-medium">Org.nr</th>
+                  <th className="px-5 py-3.5 font-medium">Redovisningsmetod</th>
+                  <th className="px-5 py-3.5 font-medium">
+                    Senaste verifikation
+                  </th>
+                  <th className="px-5 py-3.5 font-medium">Datum</th>
+                  <th className="px-5 py-3.5 font-medium">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
@@ -75,7 +89,7 @@ export default async function KlientforetagPage() {
                     <td className="p-0">
                       <Link
                         href={`/foretag/${company.id}`}
-                        className="block px-6 py-4 font-medium text-neutral-900"
+                        className="block px-5 py-4 font-medium text-neutral-900"
                       >
                         {company.name}
                       </Link>
@@ -84,7 +98,7 @@ export default async function KlientforetagPage() {
                       <Link
                         href={`/foretag/${company.id}`}
                         tabIndex={-1}
-                        className="block px-6 py-4 tabular-nums text-neutral-500"
+                        className="block px-5 py-4 tabular-nums text-neutral-500"
                       >
                         {company.orgNumber}
                       </Link>
@@ -93,9 +107,36 @@ export default async function KlientforetagPage() {
                       <Link
                         href={`/foretag/${company.id}`}
                         tabIndex={-1}
-                        className="block px-6 py-4 text-neutral-700"
+                        className="block px-5 py-4 text-neutral-700"
                       >
                         {accountingMethodLabel(company.accountingMethod)}
+                      </Link>
+                    </td>
+                    <td className="p-0">
+                      <Link
+                        href={`/foretag/${company.id}`}
+                        tabIndex={-1}
+                        className="block px-5 py-4 tabular-nums text-neutral-900"
+                      >
+                        {company.latestVoucherNumber}
+                      </Link>
+                    </td>
+                    <td className="p-0">
+                      <Link
+                        href={`/foretag/${company.id}`}
+                        tabIndex={-1}
+                        className="block px-5 py-4 tabular-nums text-neutral-500"
+                      >
+                        {company.latestVoucherDate}
+                      </Link>
+                    </td>
+                    <td className="p-0">
+                      <Link
+                        href={`/foretag/${company.id}`}
+                        tabIndex={-1}
+                        className="flex px-5 py-4"
+                      >
+                        <StatusPlaceholder />
                       </Link>
                     </td>
                   </tr>

@@ -27,24 +27,27 @@ export function PeriodLockView({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [through, setThrough] = useState(
-    view.lockable[0]?.through ?? view.next.through
+  const lockable = view.lockable.filter(
+    (option) => !view.lockedThrough || option.through > view.lockedThrough
   );
+  const firstThrough = lockable[0]?.through ?? "";
+
+  const [through, setThrough] = useState(firstThrough);
 
   useEffect(() => {
-    setThrough(view.lockable[0]?.through ?? view.next.through);
-  }, [view.lockable, view.next]);
+    setThrough(firstThrough);
+  }, [firstThrough]);
 
   const selected =
-    view.lockable.find((option) => option.through === through) ?? view.next;
-  const canLock = view.lockable.length > 0;
+    lockable.find((option) => option.through === through) ?? lockable[0];
+  const canLock = Boolean(selected);
 
   function goYear(year: number) {
     router.push(`${companyHref(companyId, "periodlasning")}?ar=${year}`);
   }
 
   function submit() {
-    if (pending) return;
+    if (pending || !selected) return;
     setError(null);
     setNotice(null);
     startTransition(async () => {
@@ -54,6 +57,7 @@ export function PeriodLockView({
         return;
       }
       setNotice(`Låst t.o.m. ${formatIsoDateSv(result.lockedThrough)}.`);
+      router.refresh();
     });
   }
 
@@ -104,16 +108,21 @@ export function PeriodLockView({
           <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
             Lås till och med
             <select
+              id="las-till-period"
               value={through}
               onChange={(event) => setThrough(event.target.value)}
               className={fieldClass}
               disabled={!canLock}
             >
-              {(canLock ? view.lockable : [view.next]).map((option) => (
-                <option key={option.through} value={option.through}>
-                  {option.label}
-                </option>
-              ))}
+              {canLock ? (
+                lockable.map((option) => (
+                  <option key={option.through} value={option.through}>
+                    {option.label}
+                  </option>
+                ))
+              ) : (
+                <option value="">Inga perioder att låsa</option>
+              )}
             </select>
           </label>
 
@@ -149,8 +158,14 @@ export function PeriodLockView({
             : view.kind === "ar"
               ? "Helårsmoms: ett lock låser hela kalenderåret."
               : "Månadsmoms: lås en månad i taget framifrån."}{" "}
-          Väljer du {selected.label} låses alla datum t.o.m.{" "}
-          {formatIsoDateSv(selected.through)}. Inget årsavslut.
+          {canLock && selected ? (
+            <>
+              Väljer du {selected.label} låses alla datum t.o.m.{" "}
+              {formatIsoDateSv(selected.through)}. Inget årsavslut.
+            </>
+          ) : (
+            <>Inga fler perioder att låsa {view.year}. Inget årsavslut.</>
+          )}
         </p>
 
         {error ? (

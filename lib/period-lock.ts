@@ -298,6 +298,7 @@ export function lockablePeriods(
   year: number,
   lockedThrough: string | null | undefined
 ): NextLockTarget[] {
+  const effective = effectiveLockedThrough(lockedThrough, kind);
   const next = nextLockTarget(lockedThrough, year, kind);
   const options: NextLockTarget[] = [];
   let cursorYear = next.year;
@@ -305,7 +306,10 @@ export function lockablePeriods(
   const max = periodCount(kind);
   while (cursorYear < year || (cursorYear === year && cursorNumber <= max)) {
     if (cursorYear === year) {
-      options.push(lockTarget(kind, cursorYear, cursorNumber));
+      const option = lockTarget(kind, cursorYear, cursorNumber);
+      if (!effective || option.through > effective) {
+        options.push(option);
+      }
     }
     if (cursorNumber >= max) {
       cursorYear += 1;

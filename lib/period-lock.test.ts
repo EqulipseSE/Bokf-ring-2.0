@@ -130,6 +130,25 @@ describe("nextLockTarget / lockablePeriods", () => {
     );
     assert.deepEqual(lockablePeriods("ar", 2026, "2026-12-31"), []);
   });
+
+  it("tar bort redan låst period ur valet", () => {
+    const quarters = lockablePeriods("kvartal", 2026, "2026-03-31");
+    assert.equal(
+      quarters.some((row) => row.label.includes("kvartal 1")),
+      false
+    );
+    assert.equal(quarters[0]?.label, "kvartal 2 2026 (apr–jun)");
+
+    const months = lockablePeriods("manad", 2026, "2026-01-31");
+    assert.equal(months.some((row) => row.through === "2026-01-31"), false);
+    assert.equal(months[0]?.label, "februari 2026");
+
+    assert.deepEqual(lockablePeriods("ar", 2026, "2026-12-31"), []);
+    assert.equal(
+      lockablePeriods("ar", 2027, "2026-12-31")[0]?.through,
+      "2027-12-31"
+    );
+  });
 });
 
 describe("validateLockThrough", () => {
