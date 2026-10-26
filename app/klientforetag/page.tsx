@@ -13,14 +13,10 @@ export const metadata: Metadata = {
 function StatusPlaceholder() {
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-1.5 py-1"
+      className="inline-block size-2.5 rounded-full bg-neutral-300"
       title="Status kommer senare"
       aria-label="Status, platshållare"
-    >
-      <span className="size-2.5 rounded-full bg-neutral-300" />
-      <span className="size-2.5 rounded-full bg-neutral-300" />
-      <span className="size-2.5 rounded-full bg-neutral-300" />
-    </span>
+    />
   );
 }
 
@@ -34,7 +30,7 @@ export default async function KlientforetagPage() {
     <div className="flex flex-1 flex-col bg-neutral-50">
       <AppHeader userName={user.name} />
 
-      <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-12">
+      <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-12">
         <div className="mb-8 flex items-end justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">
@@ -76,7 +72,6 @@ export default async function KlientforetagPage() {
                   <th className="px-5 py-3.5 font-medium">
                     Senaste verifikation
                   </th>
-                  <th className="px-5 py-3.5 font-medium">Datum</th>
                   <th className="px-5 py-3.5 font-medium">Status</th>
                 </tr>
               </thead>
@@ -117,15 +112,6 @@ export default async function KlientforetagPage() {
                         href={`/foretag/${company.id}`}
                         tabIndex={-1}
                         className="block px-5 py-4 tabular-nums text-neutral-900"
-                      >
-                        {company.latestVoucherNumber}
-                      </Link>
-                    </td>
-                    <td className="p-0">
-                      <Link
-                        href={`/foretag/${company.id}`}
-                        tabIndex={-1}
-                        className="block px-5 py-4 tabular-nums text-neutral-500"
                       >
                         {company.latestVoucherDate}
                       </Link>

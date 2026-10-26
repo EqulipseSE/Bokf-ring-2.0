@@ -2,22 +2,20 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   EMPTY_CLIENT_CELL,
-  clientLatestVoucherLabel,
-  formatClientLatest,
+  formatClientLatestDate,
   latestVoucherByCompany,
 } from "./client-list";
 
 describe("latestVoucherByCompany", () => {
   it("väljer högst datum, sedan högst nummer", () => {
     const latest = latestVoucherByCompany([
-      { companyId: "a", letter: "A", number: 2, date: "2026-02-10" },
-      { companyId: "a", letter: "A", number: 3, date: "2026-10-05" },
-      { companyId: "a", letter: "A", number: 1, date: "2026-01-15" },
-      { companyId: "b", letter: "A", number: 1, date: "2026-03-01" },
+      { companyId: "a", number: 2, date: "2026-02-10" },
+      { companyId: "a", number: 3, date: "2026-10-05" },
+      { companyId: "a", number: 1, date: "2026-01-15" },
+      { companyId: "b", number: 1, date: "2026-03-01" },
     ]);
-    assert.equal(latest.get("a")?.number, 3);
     assert.equal(latest.get("a")?.date, "2026-10-05");
-    assert.equal(latest.get("b")?.number, 1);
+    assert.equal(latest.get("b")?.date, "2026-03-01");
   });
 
   it("tom lista ger tom map", () => {
@@ -25,23 +23,10 @@ describe("latestVoucherByCompany", () => {
   });
 });
 
-describe("formatClientLatest", () => {
-  it("visar nummer och datum, eller streck utan verifikation", () => {
-    assert.deepEqual(formatClientLatest("3", "2026-10-05"), {
-      number: "3",
-      date: "2026-10-05",
-    });
-    assert.deepEqual(formatClientLatest(null, null), {
-      number: EMPTY_CLIENT_CELL,
-      date: EMPTY_CLIENT_CELL,
-    });
-    assert.equal(clientLatestVoucherLabel(null, 1), EMPTY_CLIENT_CELL);
-    assert.equal(
-      clientLatestVoucherLabel(
-        { companyId: "a", letter: "A", number: 3, date: "2026-10-05" },
-        1
-      ),
-      "3"
-    );
+describe("formatClientLatestDate", () => {
+  it("visar bara datum, eller streck utan verifikation", () => {
+    assert.equal(formatClientLatestDate("2026-10-05"), "2026-10-05");
+    assert.equal(formatClientLatestDate(null), EMPTY_CLIENT_CELL);
+    assert.equal(formatClientLatestDate(""), EMPTY_CLIENT_CELL);
   });
 });
