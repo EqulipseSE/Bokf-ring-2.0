@@ -21,11 +21,12 @@ export function TimeReportTable({ rows }: { rows: TimeReportRow[] }) {
           <tr className="border-b border-neutral-200 text-xs uppercase tracking-wide text-neutral-500">
             <th className="px-5 py-3.5 font-medium">Företag</th>
             <th className="px-5 py-3.5 font-medium">Månad</th>
+            <th className="px-5 py-3.5 font-medium">Person</th>
             <th className="px-5 py-3.5 text-right font-medium">Timmar</th>
           </tr>
         </thead>
         {rows.map((row) => {
-          const key = `${row.companyId}-${row.yearMonth}`;
+          const key = `${row.companyId}-${row.yearMonth}-${row.userId}`;
           const open = openKeys.includes(key);
           return (
             <tbody key={key} className="border-t border-neutral-100">
@@ -44,6 +45,13 @@ export function TimeReportTable({ rows }: { rows: TimeReportRow[] }) {
                   </RowButton>
                 </td>
                 <td className="p-0">
+                  <RowButton onClick={() => toggle(key)} tabIndex={-1}>
+                    <span className="font-medium tracking-wide text-neutral-800">
+                      {row.initials}
+                    </span>
+                  </RowButton>
+                </td>
+                <td className="p-0">
                   <RowButton
                     onClick={() => toggle(key)}
                     tabIndex={-1}
@@ -57,7 +65,7 @@ export function TimeReportTable({ rows }: { rows: TimeReportRow[] }) {
               </tr>
               {open ? (
                 <tr>
-                  <td colSpan={3} className="bg-neutral-50 px-5 pb-4 pt-1">
+                  <td colSpan={4} className="bg-neutral-50 px-5 pb-4 pt-1">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="text-xs uppercase tracking-wide text-neutral-500">

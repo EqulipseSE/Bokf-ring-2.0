@@ -84,13 +84,15 @@ export async function listTimeReportRows(user: {
       companyId: timeEntries.companyId,
       companyName: companies.name,
       userId: timeEntries.userId,
+      userName: users.name,
       workDate: timeEntries.workDate,
       startTime: timeEntries.startTime,
       summary: timeEntries.summary,
       minutes: timeEntries.minutes,
     })
     .from(timeEntries)
-    .innerJoin(companies, eq(timeEntries.companyId, companies.id));
+    .innerJoin(companies, eq(timeEntries.companyId, companies.id))
+    .innerJoin(users, eq(timeEntries.userId, users.id));
 
   return {
     rows: aggregateTimeReportRows(entries, scope),

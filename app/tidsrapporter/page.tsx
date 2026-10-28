@@ -25,7 +25,7 @@ export default async function TidsrapporterPage() {
             Tidsrapporter
           </h1>
           <p className="mt-1 text-sm text-neutral-500">
-            Arbetad tid per företag och kalendermånad. {caption}
+            Arbetad tid per person, företag och kalendermånad. {caption}
           </p>
         </div>
 

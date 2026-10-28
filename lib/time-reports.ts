@@ -59,6 +59,7 @@ export type TimeEntryHint = {
   companyId: string;
   companyName: string;
   userId: string;
+  userName?: string;
   workDate: string;
   startTime?: string;
   summary?: string;
@@ -78,6 +79,8 @@ export type TimeReportEntry = {
 export type TimeReportRow = {
   companyId: string;
   companyName: string;
+  userId: string;
+  initials: string;
   yearMonth: string;
   monthLabel: string;
   minutes: number;
@@ -96,6 +99,21 @@ export function monthLabelSv(yearMonth: string): string {
   const year = yearMonth.slice(0, 4);
   const name = MONTH_LABELS_SV[month - 1];
   return name ? `${name} ${year}` : yearMonth;
+}
+
+/** För- och efternamnsinitialer, t.ex. Anna Andersson → AA. */
+export function formatInitials(name: string | null | undefined): string {
+  const parts = String(name ?? "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length === 0) return "–";
+  const first = parts[0] ?? "";
+  if (parts.length === 1) {
+    return first.slice(0, Math.min(2, first.length)).toLocaleUpperCase("sv-SE");
+  }
+  const last = parts[parts.length - 1] ?? "";
+  return `${first[0] ?? ""}${last[0] ?? ""}`.toLocaleUpperCase("sv-SE");
 }
 
 /** Heltal utan decimaler, annars svenskt kommatecken. */
@@ -159,6 +177,8 @@ export function aggregateTimeReportRows(
     {
       companyId: string;
       companyName: string;
+      userId: string;
+      userName: string;
       yearMonth: string;
       minutes: number;
       entries: TimeEntryHint[];
@@ -169,15 +189,18 @@ export function aggregateTimeReportRows(
     if (!isTimeEntryVisible(entry.userId, scope)) continue;
     const yearMonth = yearMonthFromDate(entry.workDate);
     if (!YEAR_MONTH_RE.test(yearMonth)) continue;
-    const key = `${entry.companyId}:${yearMonth}`;
+    const key = `${entry.companyId}:${yearMonth}:${entry.userId}`;
     const current = totals.get(key);
     if (current) {
       current.minutes += entry.minutes;
       current.entries.push(entry);
+      if (!current.userName && entry.userName) current.userName = entry.userName;
     } else {
       totals.set(key, {
         companyId: entry.companyId,
         companyName: entry.companyName,
+        userId: entry.userId,
+        userName: entry.userName ?? "",
         yearMonth,
         minutes: entry.minutes,
         entries: [entry],
@@ -189,11 +212,18 @@ export function aggregateTimeReportRows(
     .sort((a, b) => {
       const monthCmp = b.yearMonth.localeCompare(a.yearMonth);
       if (monthCmp !== 0) return monthCmp;
-      return a.companyName.localeCompare(b.companyName, "sv");
+      const companyCmp = a.companyName.localeCompare(b.companyName, "sv");
+      if (companyCmp !== 0) return companyCmp;
+      return formatInitials(a.userName).localeCompare(
+        formatInitials(b.userName),
+        "sv"
+      );
     })
     .map((row) => ({
       companyId: row.companyId,
       companyName: row.companyName,
+      userId: row.userId,
+      initials: formatInitials(row.userName),
       yearMonth: row.yearMonth,
       monthLabel: monthLabelSv(row.yearMonth),
       minutes: row.minutes,

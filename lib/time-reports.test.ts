@@ -6,6 +6,7 @@ import {
   formatClock,
   formatClockInterval,
   formatHours,
+  formatInitials,
   isTimeEntryVisible,
   monthLabelSv,
   timeReportCaption,
@@ -17,6 +18,10 @@ const NOVUS = "novus";
 const KLOVER = "klover";
 const ANNA = "anna";
 const ERIK = "erik";
+const NAMES: Record<string, string> = {
+  [ANNA]: "Anna Andersson",
+  [ERIK]: "Erik Eriksson",
+};
 
 function entry(
   companyId: string,
@@ -25,7 +30,14 @@ function entry(
   workDate: string,
   minutes: number
 ): TimeEntryHint {
-  return { companyId, companyName, userId, workDate, minutes };
+  return {
+    companyId,
+    companyName,
+    userId,
+    userName: NAMES[userId] ?? userId,
+    workDate,
+    minutes,
+  };
 }
 
 describe("timeReportScope", () => {
@@ -62,10 +74,15 @@ describe("aggregateTimeReportRows", () => {
       { kind: "huvudkonto" }
     );
     assert.deepEqual(
-      rows.map((row) => [row.companyName, row.monthLabel, row.hoursLabel]),
+      rows.map((row) => [
+        row.companyName,
+        row.monthLabel,
+        row.initials,
+        row.hoursLabel,
+      ]),
       [
-        ["Novus AB", "oktober 2026", "2"],
-        ["Novus AB", "september 2026", "3"],
+        ["Novus AB", "oktober 2026", "AA", "2"],
+        ["Novus AB", "september 2026", "AA", "3"],
       ]
     );
   });
@@ -79,15 +96,20 @@ describe("aggregateTimeReportRows", () => {
       { kind: "huvudkonto" }
     );
     assert.deepEqual(
-      rows.map((row) => [row.companyName, row.monthLabel, row.hoursLabel]),
+      rows.map((row) => [
+        row.companyName,
+        row.monthLabel,
+        row.initials,
+        row.hoursLabel,
+      ]),
       [
-        ["Klöver AB", "september 2026", "3"],
-        ["Novus AB", "september 2026", "3"],
+        ["Klöver AB", "september 2026", "EE", "3"],
+        ["Novus AB", "september 2026", "AA", "3"],
       ]
     );
   });
 
-  it("summerar flera personer på samma företag × månad för huvudkonto", () => {
+  it("ger en rad per person × företag × månad, med initialer", () => {
     const rows = aggregateTimeReportRows(
       [
         entry(NOVUS, "Novus AB", ANNA, "2026-09-10", 120),
@@ -98,16 +120,22 @@ describe("aggregateTimeReportRows", () => {
       { kind: "huvudkonto" }
     );
     assert.deepEqual(
-      rows.map((row) => [row.companyName, row.monthLabel, row.hoursLabel]),
+      rows.map((row) => [
+        row.companyName,
+        row.monthLabel,
+        row.initials,
+        row.hoursLabel,
+      ]),
       [
-        ["Novus AB", "oktober 2026", "2"],
-        ["Klöver AB", "september 2026", "3"],
-        ["Novus AB", "september 2026", "3"],
+        ["Novus AB", "oktober 2026", "AA", "2"],
+        ["Klöver AB", "september 2026", "EE", "3"],
+        ["Novus AB", "september 2026", "AA", "2"],
+        ["Novus AB", "september 2026", "EE", "1"],
       ]
     );
   });
 
-  it("lägger poster under företag × månad, sorterade på datum", () => {
+  it("lägger poster under person × företag × månad, sorterade på datum", () => {
     const rows = aggregateTimeReportRows(
       [
         {
@@ -128,7 +156,14 @@ describe("aggregateTimeReportRows", () => {
       ],
       { kind: "huvudkonto" }
     );
-    assert.equal(rows.length, 1);
+    assert.equal(rows.length, 2);
+    assert.deepEqual(
+      rows.map((row) => [row.initials, row.hoursLabel]),
+      [
+        ["AA", "2"],
+        ["EE", "1"],
+      ]
+    );
     assert.deepEqual(
       rows[0]?.entries.map((item) => [
         item.dateLabel,
@@ -139,8 +174,16 @@ describe("aggregateTimeReportRows", () => {
       [
         ["2026-09-10", "09.00–10.00", "Avstämning", "1"],
         ["2026-09-12", "14.15–15.15", "Bankhändelser", "1"],
-        ["2026-09-18", "13.30–14.30", "Momsfrågor", "1"],
       ]
+    );
+    assert.deepEqual(
+      rows[1]?.entries.map((item) => [
+        item.dateLabel,
+        item.timeLabel,
+        item.summary,
+        item.hoursLabel,
+      ]),
+      [["2026-09-18", "13.30–14.30", "Momsfrågor", "1"]]
     );
   });
 
@@ -154,10 +197,15 @@ describe("aggregateTimeReportRows", () => {
       { kind: "anstalld", userId: ERIK }
     );
     assert.deepEqual(
-      rows.map((row) => [row.companyName, row.monthLabel, row.hoursLabel]),
+      rows.map((row) => [
+        row.companyName,
+        row.monthLabel,
+        row.initials,
+        row.hoursLabel,
+      ]),
       [
-        ["Klöver AB", "september 2026", "3"],
-        ["Novus AB", "september 2026", "1"],
+        ["Klöver AB", "september 2026", "EE", "3"],
+        ["Novus AB", "september 2026", "EE", "1"],
       ]
     );
   });
@@ -181,5 +229,11 @@ describe("formatHours / monthLabelSv", () => {
     assert.equal(formatClockInterval("08:30", 120), "08.30–10.30");
     assert.equal(formatClockInterval("09:00", 60), "09.00–10.00");
     assert.equal(formatClockInterval("14:15", 60), "14.15–15.15");
+  });
+
+  it("visar person som initialer", () => {
+    assert.equal(formatInitials("Anna Andersson"), "AA");
+    assert.equal(formatInitials("Erik Eriksson"), "EE");
+    assert.equal(formatInitials("  "), "–");
   });
 });
