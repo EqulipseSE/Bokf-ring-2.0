@@ -108,11 +108,32 @@ export function formatHours(minutes: number): string {
   });
 }
 
-/** Visar klockslag som HH:MM. */
-export function formatClock(value: string | null | undefined): string {
-  const match = String(value ?? "").trim().match(/^(\d{1,2}):(\d{2})/);
-  if (!match) return "08:00";
-  return `${match[1].padStart(2, "0")}:${match[2]}`;
+const DAY_MINUTES = 24 * 60;
+
+/** Minuter sedan midnatt. Godtar 08:30 och 08.30. */
+export function parseClockMinutes(value: string | null | undefined): number {
+  const match = String(value ?? "").trim().match(/^(\d{1,2})[:.](\d{2})/);
+  if (!match) return 8 * 60;
+  return (Number(match[1]) * 60 + Number(match[2])) % DAY_MINUTES;
+}
+
+/** Svenskt klockslag med punkt, t.ex. 08.30. */
+export function formatClock(value: string | number | null | undefined): string {
+  const minutes =
+    typeof value === "number" ? value : parseClockMinutes(value);
+  const wrapped = ((minutes % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES;
+  const hour = Math.floor(wrapped / 60);
+  const minute = wrapped % 60;
+  return `${String(hour).padStart(2, "0")}.${String(minute).padStart(2, "0")}`;
+}
+
+/** Intervall från start + längd, t.ex. 08.30–10.30. */
+export function formatClockInterval(
+  start: string | null | undefined,
+  minutes: number
+): string {
+  const startMinutes = parseClockMinutes(start);
+  return `${formatClock(startMinutes)}–${formatClock(startMinutes + minutes)}`;
 }
 
 function toEntry(entry: TimeEntryHint): TimeReportEntry {
@@ -122,7 +143,7 @@ function toEntry(entry: TimeEntryHint): TimeReportEntry {
       `${entry.companyId}:${entry.workDate}:${entry.userId}:${entry.startTime ?? ""}`,
     workDate: entry.workDate,
     dateLabel: entry.workDate,
-    timeLabel: formatClock(entry.startTime),
+    timeLabel: formatClockInterval(entry.startTime, entry.minutes),
     summary: entry.summary?.trim() || "Arbetad tid",
     minutes: entry.minutes,
     hoursLabel: formatHours(entry.minutes),
@@ -182,7 +203,7 @@ export function aggregateTimeReportRows(
         .sort((a, b) => {
           const dateCmp = a.workDate.localeCompare(b.workDate);
           if (dateCmp !== 0) return dateCmp;
-          return formatClock(a.startTime).localeCompare(formatClock(b.startTime));
+          return parseClockMinutes(a.startTime) - parseClockMinutes(b.startTime);
         })
         .map(toEntry),
     }));

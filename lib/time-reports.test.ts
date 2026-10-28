@@ -4,6 +4,7 @@ import {
   accountKindForUser,
   aggregateTimeReportRows,
   formatClock,
+  formatClockInterval,
   formatHours,
   isTimeEntryVisible,
   monthLabelSv,
@@ -136,9 +137,9 @@ describe("aggregateTimeReportRows", () => {
         item.hoursLabel,
       ]),
       [
-        ["2026-09-10", "09:00", "Avstämning", "1"],
-        ["2026-09-12", "14:15", "Bankhändelser", "1"],
-        ["2026-09-18", "13:30", "Momsfrågor", "1"],
+        ["2026-09-10", "09.00–10.00", "Avstämning", "1"],
+        ["2026-09-12", "14.15–15.15", "Bankhändelser", "1"],
+        ["2026-09-18", "13.30–14.30", "Momsfrågor", "1"],
       ]
     );
   });
@@ -174,8 +175,11 @@ describe("formatHours / monthLabelSv", () => {
     assert.equal(monthLabelSv("2026-10"), "oktober 2026");
   });
 
-  it("visar klockslag som HH:MM", () => {
-    assert.equal(formatClock("9:00"), "09:00");
-    assert.equal(formatClock("13:30:00"), "13:30");
+  it("visar klockslag som intervall med punkt", () => {
+    assert.equal(formatClock("8:30"), "08.30");
+    assert.equal(formatClock("13.30"), "13.30");
+    assert.equal(formatClockInterval("08:30", 120), "08.30–10.30");
+    assert.equal(formatClockInterval("09:00", 60), "09.00–10.00");
+    assert.equal(formatClockInterval("14:15", 60), "14.15–15.15");
   });
 });
