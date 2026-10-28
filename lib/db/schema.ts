@@ -6,6 +6,7 @@ import {
   date,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -144,6 +145,25 @@ export const voucherAttachments = pgTable(
   (t) => [unique("voucher_attachments_voucher_unique").on(t.voucherId)]
 );
 
+export const voucherChanges = pgTable(
+  "voucher_changes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    voucherId: uuid("voucher_id")
+      .notNull()
+      .references(() => vouchers.id, { onDelete: "cascade" }),
+    changedBy: uuid("changed_by")
+      .notNull()
+      .references(() => users.id),
+    changedAt: timestamp("changed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    before: jsonb("before").$type<Record<string, unknown>>().notNull(),
+    after: jsonb("after").$type<Record<string, unknown>>().notNull(),
+  },
+  (t) => [index("voucher_changes_voucher_idx").on(t.voucherId, t.changedAt)]
+);
+
 export const voucherLines = pgTable(
   "voucher_lines",
   {
@@ -229,6 +249,18 @@ export const vouchersRelations = relations(vouchers, ({ one, many }) => ({
   }),
   lines: many(voucherLines),
   attachment: one(voucherAttachments),
+  changes: many(voucherChanges),
+}));
+
+export const voucherChangesRelations = relations(voucherChanges, ({ one }) => ({
+  voucher: one(vouchers, {
+    fields: [voucherChanges.voucherId],
+    references: [vouchers.id],
+  }),
+  changedByUser: one(users, {
+    fields: [voucherChanges.changedBy],
+    references: [users.id],
+  }),
 }));
 
 export const voucherAttachmentsRelations = relations(
@@ -261,3 +293,4 @@ export type VoucherSeries = typeof voucherSeries.$inferSelect;
 export type Voucher = typeof vouchers.$inferSelect;
 export type VoucherLine = typeof voucherLines.$inferSelect;
 export type VoucherAttachment = typeof voucherAttachments.$inferSelect;
+export type VoucherChange = typeof voucherChanges.$inferSelect;

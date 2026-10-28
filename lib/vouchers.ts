@@ -1,14 +1,21 @@
 import "server-only";
 
-import { and, asc, desc, eq, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { DEFAULT_SERIES_LETTER } from "@/lib/db/bas-accounts";
 import { ensureCompanyBooks } from "@/lib/db/seed-company-books";
 import { voucherNumberLabel } from "@/lib/money";
 import {
+  describeVoucherChange,
+  formatChangeTimestamp,
+  type VoucherChangeItem,
+  type VoucherSnapshot,
+} from "@/lib/voucher-changes";
+import {
   accounts,
   users,
   voucherAttachments,
+  voucherChanges,
   voucherLines,
   voucherSeries,
   vouchers,
@@ -93,6 +100,78 @@ export async function listCompanyAccounts(
     .from(accounts)
     .where(and(eq(accounts.companyId, companyId), eq(accounts.active, true)))
     .orderBy(accounts.number);
+}
+
+/** Aktiva konton plus de som redan används på verifikationen. */
+export async function listAccountsForVoucherEdit(
+  companyId: string,
+  usedAccountIds: string[]
+): Promise<Account[]> {
+  await ensureCompanyBooks(companyId);
+  if (usedAccountIds.length === 0) return listCompanyAccounts(companyId);
+  return db
+    .select()
+    .from(accounts)
+    .where(
+      and(
+        eq(accounts.companyId, companyId),
+        or(eq(accounts.active, true), inArray(accounts.id, usedAccountIds))
+      )
+    )
+    .orderBy(accounts.number);
+}
+
+export type VoucherChangeView = {
+  id: string;
+  changedAtIso: string;
+  changedAtLabel: string;
+  changedByName: string;
+  items: VoucherChangeItem[];
+};
+
+function asSnapshot(value: unknown): VoucherSnapshot | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as Partial<VoucherSnapshot>;
+  if (typeof row.date !== "string" || typeof row.text !== "string") return null;
+  if (!Array.isArray(row.lines)) return null;
+  return row as VoucherSnapshot;
+}
+
+export async function listVoucherChanges(
+  companyId: string,
+  voucherId: string
+): Promise<VoucherChangeView[]> {
+  if (!UUID_REGEX.test(voucherId)) return [];
+  const rows = await db
+    .select({
+      id: voucherChanges.id,
+      changedAt: voucherChanges.changedAt,
+      changedByName: users.name,
+      before: voucherChanges.before,
+      after: voucherChanges.after,
+    })
+    .from(voucherChanges)
+    .innerJoin(vouchers, eq(voucherChanges.voucherId, vouchers.id))
+    .innerJoin(users, eq(voucherChanges.changedBy, users.id))
+    .where(
+      and(eq(voucherChanges.voucherId, voucherId), eq(vouchers.companyId, companyId))
+    )
+    .orderBy(desc(voucherChanges.changedAt), desc(voucherChanges.id));
+
+  return rows.map((row) => {
+    const before = asSnapshot(row.before);
+    const after = asSnapshot(row.after);
+    return {
+      id: row.id,
+      changedAtIso: row.changedAt.toISOString(),
+      changedAtLabel: formatChangeTimestamp(row.changedAt),
+      changedByName: row.changedByName,
+      items:
+        before && after
+          ? describeVoucherChange(before, after)
+          : [{ label: "Ändring", from: null, to: "kunde inte visas" }],
+    };
+  });
 }
 
 export async function listVouchers(
