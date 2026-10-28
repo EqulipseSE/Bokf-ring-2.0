@@ -55,11 +55,24 @@ export const MONTH_LABELS_SV = [
 ] as const;
 
 export type TimeEntryHint = {
+  id?: string;
   companyId: string;
   companyName: string;
   userId: string;
   workDate: string;
+  startTime?: string;
+  summary?: string;
   minutes: number;
+};
+
+export type TimeReportEntry = {
+  id: string;
+  workDate: string;
+  dateLabel: string;
+  timeLabel: string;
+  summary: string;
+  minutes: number;
+  hoursLabel: string;
 };
 
 export type TimeReportRow = {
@@ -69,6 +82,7 @@ export type TimeReportRow = {
   monthLabel: string;
   minutes: number;
   hoursLabel: string;
+  entries: TimeReportEntry[];
 };
 
 const YEAR_MONTH_RE = /^\d{4}-\d{2}$/;
@@ -94,13 +108,40 @@ export function formatHours(minutes: number): string {
   });
 }
 
+/** Visar klockslag som HH:MM. */
+export function formatClock(value: string | null | undefined): string {
+  const match = String(value ?? "").trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return "08:00";
+  return `${match[1].padStart(2, "0")}:${match[2]}`;
+}
+
+function toEntry(entry: TimeEntryHint): TimeReportEntry {
+  return {
+    id:
+      entry.id ??
+      `${entry.companyId}:${entry.workDate}:${entry.userId}:${entry.startTime ?? ""}`,
+    workDate: entry.workDate,
+    dateLabel: entry.workDate,
+    timeLabel: formatClock(entry.startTime),
+    summary: entry.summary?.trim() || "Arbetad tid",
+    minutes: entry.minutes,
+    hoursLabel: formatHours(entry.minutes),
+  };
+}
+
 export function aggregateTimeReportRows(
   entries: readonly TimeEntryHint[],
   scope: TimeReportScope
 ): TimeReportRow[] {
   const totals = new Map<
     string,
-    { companyId: string; companyName: string; yearMonth: string; minutes: number }
+    {
+      companyId: string;
+      companyName: string;
+      yearMonth: string;
+      minutes: number;
+      entries: TimeEntryHint[];
+    }
   >();
 
   for (const entry of entries) {
@@ -111,12 +152,14 @@ export function aggregateTimeReportRows(
     const current = totals.get(key);
     if (current) {
       current.minutes += entry.minutes;
+      current.entries.push(entry);
     } else {
       totals.set(key, {
         companyId: entry.companyId,
         companyName: entry.companyName,
         yearMonth,
         minutes: entry.minutes,
+        entries: [entry],
       });
     }
   }
@@ -134,5 +177,13 @@ export function aggregateTimeReportRows(
       monthLabel: monthLabelSv(row.yearMonth),
       minutes: row.minutes,
       hoursLabel: formatHours(row.minutes),
+      entries: row.entries
+        .slice()
+        .sort((a, b) => {
+          const dateCmp = a.workDate.localeCompare(b.workDate);
+          if (dateCmp !== 0) return dateCmp;
+          return formatClock(a.startTime).localeCompare(formatClock(b.startTime));
+        })
+        .map(toEntry),
     }));
 }

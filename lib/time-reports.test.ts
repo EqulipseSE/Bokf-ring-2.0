@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   accountKindForUser,
   aggregateTimeReportRows,
+  formatClock,
   formatHours,
   isTimeEntryVisible,
   monthLabelSv,
@@ -105,6 +106,43 @@ describe("aggregateTimeReportRows", () => {
     );
   });
 
+  it("lägger poster under företag × månad, sorterade på datum", () => {
+    const rows = aggregateTimeReportRows(
+      [
+        {
+          ...entry(NOVUS, "Novus AB", ERIK, "2026-09-18", 60),
+          startTime: "13:30",
+          summary: "Momsfrågor",
+        },
+        {
+          ...entry(NOVUS, "Novus AB", ANNA, "2026-09-10", 60),
+          startTime: "09:00",
+          summary: "Avstämning",
+        },
+        {
+          ...entry(NOVUS, "Novus AB", ANNA, "2026-09-12", 60),
+          startTime: "14:15",
+          summary: "Bankhändelser",
+        },
+      ],
+      { kind: "huvudkonto" }
+    );
+    assert.equal(rows.length, 1);
+    assert.deepEqual(
+      rows[0]?.entries.map((item) => [
+        item.dateLabel,
+        item.timeLabel,
+        item.summary,
+        item.hoursLabel,
+      ]),
+      [
+        ["2026-09-10", "09:00", "Avstämning", "1"],
+        ["2026-09-12", "14:15", "Bankhändelser", "1"],
+        ["2026-09-18", "13:30", "Momsfrågor", "1"],
+      ]
+    );
+  });
+
   it("filtrerar anställd till bara egna timmar", () => {
     const rows = aggregateTimeReportRows(
       [
@@ -134,5 +172,10 @@ describe("formatHours / monthLabelSv", () => {
   it("skriver månad med svenskt namn", () => {
     assert.equal(monthLabelSv("2026-09"), "september 2026");
     assert.equal(monthLabelSv("2026-10"), "oktober 2026");
+  });
+
+  it("visar klockslag som HH:MM", () => {
+    assert.equal(formatClock("9:00"), "09:00");
+    assert.equal(formatClock("13:30:00"), "13:30");
   });
 });

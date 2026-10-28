@@ -160,6 +160,8 @@ export const timeEntries = pgTable(
       .notNull()
       .references(() => users.id),
     workDate: date("work_date").notNull(),
+    startTime: text("start_time").notNull().default("08:00"),
+    summary: text("summary").notNull().default(""),
     minutes: integer("minutes").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

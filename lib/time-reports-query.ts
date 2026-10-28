@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { companies, timeEntries, users } from "@/lib/db/schema";
 import { hashPassword } from "@/lib/password";
@@ -23,6 +23,56 @@ const DEMO_COMPANIES = [
 
 type DemoCompanyName = (typeof DEMO_COMPANIES)[number]["name"];
 
+const DEMO_ENTRIES: {
+  company: DemoCompanyName;
+  who: "primary" | "colleague";
+  workDate: string;
+  startTime: string;
+  minutes: number;
+  summary: string;
+}[] = [
+  {
+    company: "Novus AB",
+    who: "primary",
+    workDate: "2026-09-10",
+    startTime: "09:00",
+    minutes: 60,
+    summary: "Avstämning leverantörsreskontra",
+  },
+  {
+    company: "Novus AB",
+    who: "primary",
+    workDate: "2026-09-12",
+    startTime: "14:15",
+    minutes: 60,
+    summary: "Bokföring bankhändelser",
+  },
+  {
+    company: "Novus AB",
+    who: "colleague",
+    workDate: "2026-09-18",
+    startTime: "13:30",
+    minutes: 60,
+    summary: "Momsfrågor inför deklaration",
+  },
+  {
+    company: "Novus AB",
+    who: "primary",
+    workDate: "2026-10-08",
+    startTime: "08:30",
+    minutes: 120,
+    summary: "Löpande bokföring oktober",
+  },
+  {
+    company: "Klöver AB",
+    who: "colleague",
+    workDate: "2026-09-20",
+    startTime: "10:00",
+    minutes: 180,
+    summary: "Bokslutsinventering och avstämning",
+  },
+];
+
 export async function listTimeReportRows(user: {
   id: string;
 }): Promise<{ rows: TimeReportRow[]; scope: TimeReportScope; caption: string }> {
@@ -30,10 +80,13 @@ export async function listTimeReportRows(user: {
   const scope = timeReportScope(accountKindForUser(user), user.id);
   const entries = await db
     .select({
+      id: timeEntries.id,
       companyId: timeEntries.companyId,
       companyName: companies.name,
       userId: timeEntries.userId,
       workDate: timeEntries.workDate,
+      startTime: timeEntries.startTime,
+      summary: timeEntries.summary,
       minutes: timeEntries.minutes,
     })
     .from(timeEntries)
@@ -48,12 +101,6 @@ export async function listTimeReportRows(user: {
 
 /** Demo-timmar så listan inte är tom. Ingen registreringsvy i det här steget. */
 export async function ensureDemoTimeEntries(): Promise<void> {
-  const existing = await db
-    .select({ id: timeEntries.id })
-    .from(timeEntries)
-    .limit(1);
-  if (existing.length > 0) return;
-
   const staff = await db
     .select({ id: users.id, email: users.email })
     .from(users)
@@ -63,36 +110,46 @@ export async function ensureDemoTimeEntries(): Promise<void> {
 
   const colleague = await ensureDemoColleague(staff);
   const companyIds = await ensureDemoCompanies();
-  const novusId = companyIds.get("Novus AB");
-  const kloverId = companyIds.get("Klöver AB");
-  if (!novusId || !kloverId) return;
+  const userByWho = {
+    primary: primary.id,
+    colleague: colleague.id,
+  } as const;
 
-  await db.insert(timeEntries).values([
-    {
-      companyId: novusId,
-      userId: primary.id,
-      workDate: "2026-09-10",
-      minutes: 120,
-    },
-    {
-      companyId: novusId,
-      userId: colleague.id,
-      workDate: "2026-09-18",
-      minutes: 60,
-    },
-    {
-      companyId: novusId,
-      userId: primary.id,
-      workDate: "2026-10-08",
-      minutes: 120,
-    },
-    {
-      companyId: kloverId,
-      userId: colleague.id,
-      workDate: "2026-09-20",
-      minutes: 180,
-    },
-  ]);
+  for (const item of DEMO_ENTRIES) {
+    const companyId = companyIds.get(item.company);
+    if (!companyId) continue;
+    const userId = userByWho[item.who];
+    const existing = await db
+      .select({ id: timeEntries.id })
+      .from(timeEntries)
+      .where(
+        and(
+          eq(timeEntries.companyId, companyId),
+          eq(timeEntries.userId, userId),
+          eq(timeEntries.workDate, item.workDate)
+        )
+      )
+      .limit(1);
+
+    const values = {
+      minutes: item.minutes,
+      startTime: item.startTime,
+      summary: item.summary,
+    };
+    if (existing[0]) {
+      await db
+        .update(timeEntries)
+        .set(values)
+        .where(eq(timeEntries.id, existing[0].id));
+    } else {
+      await db.insert(timeEntries).values({
+        companyId,
+        userId,
+        workDate: item.workDate,
+        ...values,
+      });
+    }
+  }
 }
 
 async function ensureDemoColleague(
