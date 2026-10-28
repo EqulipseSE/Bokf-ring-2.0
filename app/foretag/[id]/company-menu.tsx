@@ -9,6 +9,7 @@ import {
   verifikationerBase,
   voucherSubmenuState,
 } from "@/lib/voucher-nav";
+import { AppMenu } from "@/app/components/app-menu";
 import { ArkivDrawer } from "./arkiv-drawer";
 import { MenuIconSvg } from "./menu-icon";
 import {
@@ -66,7 +67,7 @@ export function CompanyMenu({
   const voucherBase = verifikationerBase(companyId);
 
   return (
-    <header className="border-b border-neutral-200 bg-white">
+    <header className="relative z-20 border-b border-neutral-200 bg-white">
       <div className="flex items-center justify-between gap-6 px-6">
         <nav className="flex items-center gap-0.5" aria-label="Företagsmeny">
           <Link
@@ -124,11 +125,14 @@ export function CompanyMenu({
             );
           })}
         </nav>
-        <p className="truncate py-3 text-right text-sm text-neutral-600">
-          <span className="font-medium text-neutral-800">{companyName}</span>
-          <span className="mx-2 text-neutral-300">·</span>
-          <span>{accountingMethod}</span>
-        </p>
+        <div className="flex min-w-0 items-center gap-3 py-2">
+          <p className="truncate text-right text-sm text-neutral-600">
+            <span className="font-medium text-neutral-800">{companyName}</span>
+            <span className="mx-2 text-neutral-300">·</span>
+            <span>{accountingMethod}</span>
+          </p>
+          <AppMenu />
+        </div>
       </div>
 
       <nav

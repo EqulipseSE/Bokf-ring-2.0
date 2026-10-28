@@ -57,6 +57,20 @@
       "when": 1793043202673,
       "tag": "0007_chunky_gideon",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793193428923,
+      "tag": "0008_lethal_maximus",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793198967717,
+      "tag": "0009_mixed_charles_xavier",
+      "breakpoints": true
     }
   ]
 }

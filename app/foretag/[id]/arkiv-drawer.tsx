@@ -53,7 +53,9 @@ export function ArkivDrawer({
         aria-label="Stäng Arkiv"
         onClick={onClose}
         className={`absolute inset-0 bg-neutral-900/20 transition-opacity duration-300 ${
-          open ? "opacity-100" : "opacity-0"
+          open
+            ? "pointer-events-auto opacity-100"
+            : "pointer-events-none opacity-0"
         }`}
       />
       <aside
@@ -61,7 +63,9 @@ export function ArkivDrawer({
         aria-modal={open || undefined}
         aria-labelledby={titleId}
         className={`absolute inset-y-0 left-0 flex w-[min(28rem,92vw)] flex-col bg-white shadow-[8px_0_40px_rgba(15,15,15,0.12)] transition-transform duration-300 ease-out ${
-          open ? "translate-x-0" : "-translate-x-full"
+          open
+            ? "pointer-events-auto translate-x-0"
+            : "pointer-events-none -translate-x-full"
         }`}
       >
         <div className="flex items-start justify-between gap-6 px-8 pb-4 pt-8">

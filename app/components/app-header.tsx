@@ -1,16 +1,17 @@
 import Link from "next/link";
+import { AppMenu } from "@/app/components/app-menu";
 import { logout } from "@/app/logga-in/actions";
 
 export function AppHeader({ userName }: { userName: string }) {
   return (
-    <header className="flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-4">
+    <header className="relative z-20 flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-4">
       <Link
         href="/klientforetag"
         className="font-semibold tracking-tight text-neutral-900"
       >
         Omnio
       </Link>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         <span className="text-sm text-neutral-500">{userName}</span>
         <form action={logout}>
           <button
@@ -20,6 +21,7 @@ export function AppHeader({ userName }: { userName: string }) {
             Logga ut
           </button>
         </form>
+        <AppMenu />
       </div>
     </header>
   );
