@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AppMenu } from "@/app/components/app-menu";
 import { logout } from "@/app/logga-in/actions";
 
 export function AppHeader({ userName }: { userName: string }) {
@@ -10,7 +11,7 @@ export function AppHeader({ userName }: { userName: string }) {
       >
         Omnio
       </Link>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         <span className="text-sm text-neutral-500">{userName}</span>
         <form action={logout}>
           <button
@@ -20,6 +21,7 @@ export function AppHeader({ userName }: { userName: string }) {
             Logga ut
           </button>
         </form>
+        <AppMenu />
       </div>
     </header>
   );

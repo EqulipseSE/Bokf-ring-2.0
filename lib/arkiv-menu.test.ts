@@ -32,6 +32,12 @@ describe("menuGroups", () => {
       groups.map((group) => group.id),
       ["bokforing", "utskrifter"]
     );
+    assert.equal(
+      groups.some((group) =>
+        group.items.some((item) => item.label === "Tidsrapporter")
+      ),
+      false
+    );
   });
 
   it("lägger momsdeklarationen i Bokföring och Utskrifter", () => {

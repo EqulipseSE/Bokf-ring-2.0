@@ -144,6 +144,34 @@ export const voucherAttachments = pgTable(
   (t) => [unique("voucher_attachments_voucher_unique").on(t.voucherId)]
 );
 
+/**
+ * Arbetad tid per medarbetare och företag. Listan aggregerar per
+ * företag × kalendermånad. Huvudkonto ser alla rader, anställd bara
+ * egna (filtrering i lib/time-reports.ts — kontotyper byggs i BF-17).
+ */
+export const timeEntries = pgTable(
+  "time_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    workDate: date("work_date").notNull(),
+    minutes: integer("minutes").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("time_entries_company_date_idx").on(t.companyId, t.workDate),
+    index("time_entries_user_idx").on(t.userId),
+    check("time_entries_minutes_positive", sql`${t.minutes} > 0`),
+  ]
+);
+
 export const voucherLines = pgTable(
   "voucher_lines",
   {
@@ -170,13 +198,29 @@ export const voucherLines = pgTable(
   ]
 );
 
+export const usersRelations = relations(users, ({ many }) => ({
+  timeEntries: many(timeEntries),
+}));
+
 export const companiesRelations = relations(companies, ({ many, one }) => ({
   accounts: many(accounts),
   voucherSeries: many(voucherSeries),
   vouchers: many(vouchers),
+  timeEntries: many(timeEntries),
   periodLock: one(companyPeriodLocks, {
     fields: [companies.id],
     references: [companyPeriodLocks.companyId],
+  }),
+}));
+
+export const timeEntriesRelations = relations(timeEntries, ({ one }) => ({
+  company: one(companies, {
+    fields: [timeEntries.companyId],
+    references: [companies.id],
+  }),
+  user: one(users, {
+    fields: [timeEntries.userId],
+    references: [users.id],
   }),
 }));
 
@@ -261,3 +305,4 @@ export type VoucherSeries = typeof voucherSeries.$inferSelect;
 export type Voucher = typeof vouchers.$inferSelect;
 export type VoucherLine = typeof voucherLines.$inferSelect;
 export type VoucherAttachment = typeof voucherAttachments.$inferSelect;
+export type TimeEntry = typeof timeEntries.$inferSelect;
