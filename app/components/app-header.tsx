@@ -4,7 +4,7 @@ import { logout } from "@/app/logga-in/actions";
 
 export function AppHeader({ userName }: { userName: string }) {
   return (
-    <header className="flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-4">
+    <header className="relative z-20 flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-4">
       <Link
         href="/klientforetag"
         className="font-semibold tracking-tight text-neutral-900"

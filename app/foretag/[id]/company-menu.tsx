@@ -67,7 +67,7 @@ export function CompanyMenu({
   const voucherBase = verifikationerBase(companyId);
 
   return (
-    <header className="border-b border-neutral-200 bg-white">
+    <header className="relative z-20 border-b border-neutral-200 bg-white">
       <div className="flex items-center justify-between gap-6 px-6">
         <nav className="flex items-center gap-0.5" aria-label="Företagsmeny">
           <Link
