@@ -1,15 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { VatCodeSelect } from "@/app/components/vat-code-select";
+import { DateTextInput } from "@/app/components/date-text-input";
 import type { Account } from "@/lib/db/schema";
-import { formatOre, formatOreInput, parseAmountToOre } from "@/lib/money";
+import { completeAmountDecimals, formatOre, formatOreInput, parseAmountToOre } from "@/lib/money";
+import { voucherVatHint } from "@/lib/vat-check";
 import { UNDERLAG_ACCEPT, validateUnderlagMeta } from "@/lib/underlag";
 import { assertDateOpen, formatIsoDateSv } from "@/lib/period-lock";
 import { parseVoucherDate } from "@/lib/voucher-date";
 import { AccountSearch } from "./account-search";
-import { saveVoucher } from "./actions";
+import { nextVoucherTransaction, saveVoucher } from "./actions";
 import { UnderlagPreview } from "./underlag-preview";
 import {
   clearDraft,
@@ -77,6 +77,8 @@ const fieldClass =
   "h-8 border border-neutral-300 bg-white px-2 text-sm text-neutral-900 outline-none focus:ring-1 focus:ring-neutral-400";
 const cellInputClass =
   "h-8 w-full bg-transparent px-2 py-1 text-sm text-neutral-900 outline-none focus:bg-white focus:ring-1 focus:ring-neutral-400";
+const columnRule = "border-r border-neutral-300";
+const firstColumn = "border-l border-neutral-300";
 const headerButtonClass =
   "h-8 border border-neutral-300 bg-white px-3 text-sm text-neutral-800 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40";
 
@@ -95,32 +97,43 @@ export function VoucherForm({
   const [dateError, setDateError] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [lines, setLines] = useState<LineDraft[]>(() => emptyLines(8));
-  const [savedLabel, setSavedLabel] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [loadingTransaction, startTransactionLoad] = useTransition();
   const [balances, setBalances] = useState(accountBalances);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const [attachment, setAttachment] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewMime, setPreviewMime] = useState("application/pdf");
+  const [previewName, setPreviewName] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [bankTransactionId, setBankTransactionId] = useState<string | null>(null);
+  const cursorRef = useRef<string | null>(null);
+  const [suggestion, setSuggestion] = useState<{
+    documentId: string | null;
+    postings: { accountNumber: string; debitOre: number; creditOre: number }[];
+  } | null>(null);
+  const [suggestionApplied, setSuggestionApplied] = useState(false);
+  const [transactionNote, setTransactionNote] = useState<string | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const dateRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const skipPersist = useRef(false);
   const accountRefs = useRef<Array<HTMLInputElement | null>>([]);
   const debitRefs = useRef<Array<HTMLInputElement | null>>([]);
   const creditRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const registerRef = useRef<HTMLButtonElement>(null);
   const [hydrated, setHydrated] = useState(false);
 
   const totals = sumLines(lines);
   const difference = totals.debit - totals.credit;
   const readyLines = lines.filter((line) => !isLineEmpty(line));
   const balanced =
+    readyLines.length > 0 &&
     difference === 0 &&
     totals.debit > 0 &&
-    readyLines.length >= 2 &&
     readyLines.every((line) => line.accountId);
-  const listHref = `/foretag/${companyId}/verifikationer`;
   const focusedLine = focusedIndex != null ? lines[focusedIndex] : null;
   const focusedAccount = focusedLine?.accountId
     ? accounts.find((account) => account.id === focusedLine.accountId) ?? null
@@ -213,9 +226,123 @@ export function VoucherForm({
     const url = URL.createObjectURL(file);
     setAttachment(file);
     setPreviewUrl(url);
+    setPreviewMime(file.type || "application/pdf");
+    setPreviewName(file.name);
     setPreviewOpen(true);
     setAttachmentError(null);
   }
+
+  function loadNextTransaction() {
+    setTransactionNote(null);
+    setError(null);
+    startTransactionLoad(async () => {
+      const result = await nextVoucherTransaction(companyId, cursorRef.current);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      const transaction = result.transaction;
+      if (!transaction) {
+        setTransactionNote("Inga fler obokförda transaktioner.");
+        return;
+      }
+      const account = accounts.find((item) => item.number === transaction.bookAccountNumber);
+      const amount = formatOreInput(Math.abs(transaction.amountOre));
+      const incoming = transaction.amountOre > 0;
+      if (previewUrl?.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
+      cursorRef.current = transaction.id;
+      setBankTransactionId(transaction.id);
+      setDateInput(transaction.date);
+      setAnchorDate(transaction.date);
+      setDateError(null);
+      setText(transaction.text);
+      setLines(
+        withTrailingEmpty([
+          {
+            ...createLine(),
+            accountId: account?.id ?? "",
+            accountNumber: transaction.bookAccountNumber,
+            accountName: account?.name ?? "",
+            vatCode: account?.vatCode ?? "",
+            debit: incoming ? amount : "",
+            credit: incoming ? "" : amount,
+          },
+          ...emptyLines(7),
+        ])
+      );
+      setAttachment(null);
+      setSuggestionApplied(false);
+      if (transaction.document) {
+        setSuggestion({
+          documentId: transaction.document.link ? transaction.document.id : null,
+          postings: transaction.postings,
+        });
+        setPreviewUrl(`/foretag/${companyId}/underlag/fil/${transaction.document.id}`);
+        setPreviewMime(transaction.document.mimeType);
+        setPreviewName(transaction.document.name);
+        setPreviewOpen(false);
+      } else {
+        setSuggestion(transaction.postings.length > 0 ? { documentId: null, postings: transaction.postings } : null);
+        setPreviewUrl(null);
+        setPreviewOpen(false);
+      }
+    });
+  }
+
+  function applySuggestion() {
+    if (!suggestion) return;
+    if (suggestionApplied) {
+      setLines((prev) => withTrailingEmpty([prev[0] ?? createLine(), ...emptyLines(7)]));
+      setSuggestionApplied(false);
+      setPreviewOpen(false);
+      return;
+    }
+    const extra = suggestion.postings.map((posting) => {
+      const account = accounts.find((item) => item.number === posting.accountNumber);
+      return {
+        ...createLine(),
+        accountId: account?.id ?? "",
+        accountNumber: posting.accountNumber,
+        accountName: account?.name ?? "",
+        vatCode: account?.vatCode ?? "",
+        debit: posting.debitOre ? formatOreInput(posting.debitOre) : "",
+        credit: posting.creditOre ? formatOreInput(posting.creditOre) : "",
+      };
+    });
+    setLines((prev) => withTrailingEmpty([prev[0] ?? createLine(), ...extra, ...emptyLines(6)]));
+    setSuggestionApplied(true);
+    if (previewUrl) setPreviewOpen(true);
+  }
+
+  const shortcutRef = useRef({
+    showSuggestion: false,
+    loading: false,
+    apply: () => {},
+    next: () => {},
+  });
+  shortcutRef.current = {
+    showSuggestion: Boolean(suggestion) && !suggestionApplied,
+    loading: loadingTransaction,
+    apply: applySuggestion,
+    next: loadNextTransaction,
+  };
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== "+" || event.repeat) return;
+      event.preventDefault();
+      const current = shortcutRef.current;
+      if (current.loading) return;
+      if (current.showSuggestion) current.apply();
+      else current.next();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  useEffect(() => {
+    if (!suggestionApplied) return;
+    registerRef.current?.focus();
+  }, [suggestionApplied]);
 
   function submit() {
     if (pending) return;
@@ -239,13 +366,13 @@ export function VoucherForm({
         text,
         lines: payloadLines,
         attachment,
+        bankTransactionId,
+        documentId: suggestionApplied ? suggestion?.documentId : null,
       });
       if (!result.ok) {
         setError(result.error);
-        setSavedLabel(null);
         return;
       }
-      setSavedLabel(result.numberLabel);
       setNumberLabel(result.nextNumberLabel);
       setDateInput(isoDate);
       setAnchorDate(isoDate);
@@ -255,13 +382,18 @@ export function VoucherForm({
       setError(result.attachmentError ?? null);
       setBalances((prev) => applySavedBalances(prev, payloadLines));
       setFocusedIndex(null);
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      if (previewUrl?.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
       setAttachment(null);
       setPreviewUrl(null);
       setPreviewOpen(false);
+      setBankTransactionId(null);
+      cursorRef.current = null;
+      setSuggestion(null);
+      setSuggestionApplied(false);
       setAttachmentError(null);
+      skipPersist.current = true;
       clearDraft(companyId);
-      setCardTarget(companyId, { kind: "saved", id: result.voucherId });
+      setCardTarget(companyId, { kind: "draft" });
       if (fileRef.current) fileRef.current.value = "";
       window.requestAnimationFrame(() => textRef.current?.focus());
     });
@@ -300,6 +432,10 @@ export function VoucherForm({
 
   useEffect(() => {
     if (!hydrated) return;
+    if (skipPersist.current) {
+      skipPersist.current = false;
+      return;
+    }
     persistDraftIfDirty(companyId, {
       dateInput,
       defaultDate: baselineDate,
@@ -319,25 +455,13 @@ export function VoucherForm({
     previewUrl,
   ]);
 
+  const showPreview = Boolean(previewOpen && previewUrl);
+
   return (
     <div className="mx-auto w-full max-w-7xl flex-1 px-6 py-8">
-      <Link
-        href={listHref}
-        className="text-sm text-neutral-500 transition hover:text-neutral-900"
-      >
-        ← Tillbaka till verifikationer
-      </Link>
-
-      <div className="mt-3 mb-4 flex items-baseline justify-between gap-4">
-        <h1 className="text-xl font-semibold tracking-tight text-neutral-900">
+      <h1 className="mb-4 text-xl font-semibold tracking-tight text-neutral-900">
           Verifikation
         </h1>
-        {savedLabel ? (
-          <p role="status" className="text-sm font-medium text-emerald-800">
-            {savedLabel} sparad
-          </p>
-        ) : null}
-      </div>
 
       <div className="border border-neutral-200 bg-white">
         <div className="flex items-start justify-between gap-6 border-b border-neutral-200 px-4 py-3">
@@ -354,12 +478,9 @@ export function VoucherForm({
             <div>
               <label className="flex items-center gap-3 text-sm text-neutral-700">
                 <span className="w-36 shrink-0">Datum</span>
-                <input
+                <DateTextInput
                   ref={dateRef}
                   id="voucher-date"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
                   value={dateInput}
                   onChange={(event) => {
                     setDateInput(event.target.value);
@@ -399,7 +520,7 @@ export function VoucherForm({
                     accountRefs.current[0]?.focus();
                   }
                 }}
-                className={`${fieldClass} min-w-0 flex-1`}
+                className={`${fieldClass} w-64`}
               />
             </label>
           </div>
@@ -414,6 +535,19 @@ export function VoucherForm({
                 event.target.value = "";
               }}
             />
+            {suggestion ? (
+              <button
+                type="button"
+                onClick={applySuggestion}
+                title="+"
+                className="h-11 rounded-md border border-sky-300 bg-sky-100 px-5 text-base font-medium text-sky-950 transition hover:bg-sky-200"
+              >
+                {suggestionApplied ? "Dölj förslag" : "Visa förslag"}
+              </button>
+            ) : null}
+            <button type="button" className={headerButtonClass} disabled={loadingTransaction} title="+" onClick={loadNextTransaction}>
+              {loadingTransaction ? "Hämtar…" : "Nästa transaktion"}
+            </button>
             <button
               type="button"
               className={headerButtonClass}
@@ -421,44 +555,56 @@ export function VoucherForm({
             >
               Koppla underlag
             </button>
-            <button
-              type="button"
-              className={headerButtonClass}
-              disabled={!attachment}
-              onClick={() => setPreviewOpen((open) => !open)}
-            >
-              {previewOpen && attachment ? "Dölj underlag" : "Visa underlag"}
-            </button>
+            {previewUrl ? (
+              <button
+                type="button"
+                className={headerButtonClass}
+                onClick={() => setPreviewOpen((open) => !open)}
+              >
+                {previewOpen ? "Dölj underlag" : "Visa underlag"}
+              </button>
+            ) : null}
           </div>
         </div>
 
+        {transactionNote ? (
+          <p className="border-b border-neutral-200 px-4 py-2 text-sm text-neutral-600">{transactionNote}</p>
+        ) : null}
         {attachmentError ? (
           <p role="alert" className="border-b border-neutral-200 px-4 py-2 text-sm text-red-700">
             {attachmentError}
           </p>
         ) : null}
 
-        <div className={previewOpen && previewUrl ? "flex min-h-[28rem]" : ""}>
-          <div className="min-w-0 flex-1 overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
+        <div className={showPreview ? "flex min-h-[28rem]" : ""}>
+          <div className={showPreview ? "shrink-0" : "min-w-0 flex-1 overflow-x-auto"}>
+            <table className={`${showPreview ? "w-auto" : "w-full"} table-fixed border-collapse text-sm`}>
+              <colgroup>
+                <col style={{ width: "6rem" }} />
+                <col style={{ width: "22rem" }} />
+                <col style={{ width: "8rem" }} />
+                <col style={{ width: "8rem" }} />
+                {showPreview ? null : <col />}
+              </colgroup>
               <thead>
-                <tr className="border-b border-neutral-200 bg-neutral-100 text-left text-xs font-medium text-neutral-600">
-                  <th className="w-24 px-2 py-2">Konto</th>
-                  <th className="px-2 py-2">Benämning</th>
-                  <th className="w-20 px-2 py-2">Momskod</th>
-                  <th className="w-32 px-2 py-2 text-right">Debet</th>
-                  <th className="w-32 px-2 py-2 text-right">Kredit</th>
+                <tr className="border-b border-neutral-300 bg-neutral-100 text-left text-xs font-medium text-neutral-600">
+                  <th className={`w-24 px-2 py-2 ${firstColumn} ${columnRule}`}>Konto</th>
+                  <th className={`px-2 py-2 ${columnRule}`}>Benämning</th>
+                  <th className={`w-32 px-2 py-2 text-right ${columnRule}`}>Debet</th>
+                  <th className={`w-32 px-2 py-2 text-right ${columnRule}`}>Kredit</th>
+                  {showPreview ? null : <th />}
                 </tr>
               </thead>
               <tbody>
                 {lines.map((line, index) => (
                   <tr
                     key={line.key}
-                    className="border-b border-neutral-100"
+                    className="border-b border-neutral-200"
                     onFocusCapture={() => setFocusedIndex(index)}
                   >
-                    <td className="p-0 align-top">
+                    <td className={`p-0 align-top ${firstColumn} ${columnRule}`}>
                       <AccountSearch
+                        companyId={companyId}
                         accounts={accounts}
                         query={line.accountNumber}
                         selectedId={line.accountId}
@@ -485,28 +631,26 @@ export function VoucherForm({
                           }
                           applyAccount(index, account);
                         }}
+                        onEmptyBlur={() => updateLine(index, { debit: "", credit: "" })}
                         onCommit={() => focusAmountAfterAccount(index)}
+                        onBlankEnter={() => {
+                          if (!balanced) return false;
+                          registerRef.current?.focus();
+                          return true;
+                        }}
                       />
                     </td>
-                    <td className="p-0 align-middle">
+                    <td className={`p-0 align-middle ${columnRule}`}>
                       <input
                         tabIndex={-1}
                         readOnly
                         value={line.accountName}
+                        title={line.accountName}
                         aria-label={`Benämning rad ${index + 1}`}
                         className={`${cellInputClass} text-neutral-600`}
                       />
                     </td>
-                    <td className="p-0 align-middle">
-                      <VatCodeSelect
-                        compact
-                        tabIndex={-1}
-                        value={line.vatCode}
-                        ariaLabel={`Momskod rad ${index + 1}`}
-                        onChange={(vatCode) => updateLine(index, { vatCode })}
-                      />
-                    </td>
-                    <td className="p-0 align-top">
+                    <td className={`p-0 align-top ${columnRule}`}>
                       <input
                         ref={(el) => {
                           debitRefs.current[index] = el;
@@ -516,6 +660,9 @@ export function VoucherForm({
                         aria-label={`Debet rad ${index + 1}`}
                         onChange={(event) =>
                           updateLine(index, { debit: event.target.value, credit: "" })
+                        }
+                        onBlur={(event) =>
+                          updateLine(index, { debit: completeAmountDecimals(event.target.value) })
                         }
                         onFocus={(event) => {
                           if (!line.debit && !line.credit) {
@@ -543,7 +690,7 @@ export function VoucherForm({
                         className={`${cellInputClass} text-right tabular-nums`}
                       />
                     </td>
-                    <td className="p-0 align-top">
+                    <td className={`p-0 align-top ${columnRule}`}>
                       <input
                         ref={(el) => {
                           creditRefs.current[index] = el;
@@ -553,6 +700,9 @@ export function VoucherForm({
                         aria-label={`Kredit rad ${index + 1}`}
                         onChange={(event) =>
                           updateLine(index, { credit: event.target.value, debit: "" })
+                        }
+                        onBlur={(event) =>
+                          updateLine(index, { credit: completeAmountDecimals(event.target.value) })
                         }
                         onFocus={(event) => {
                           if (!line.debit && !line.credit) {
@@ -572,50 +722,53 @@ export function VoucherForm({
                         className={`${cellInputClass} text-right tabular-nums`}
                       />
                     </td>
+                    {showPreview ? null : <td />}
                   </tr>
                 ))}
-                <tr className="border-t border-neutral-200 bg-neutral-50 text-sm">
-                  <td colSpan={3} className="px-2 py-2 text-neutral-600">
+                <tr className="border-t border-neutral-300 bg-neutral-50 text-sm">
+                  <td colSpan={2} className={`px-2 py-2 text-neutral-600 ${firstColumn} ${columnRule}`}>
                     Summa
                   </td>
-                  <td className="px-2 py-2 text-right tabular-nums text-neutral-900">
+                  <td className={`px-2 py-2 text-right tabular-nums text-neutral-900 ${columnRule}`}>
                     {formatOre(totals.debit)}
                   </td>
-                  <td className="px-2 py-2 text-right tabular-nums text-neutral-900">
+                  <td className={`px-2 py-2 text-right tabular-nums text-neutral-900 ${columnRule}`}>
                     {formatOre(totals.credit)}
                   </td>
+                  {showPreview ? null : <td />}
                 </tr>
                 <tr className="text-sm">
-                  <td colSpan={3} className="px-2 py-2 text-neutral-600">
+                  <td colSpan={2} className={`px-2 py-2 text-neutral-600 ${firstColumn} ${columnRule}`}>
                     Diff
                   </td>
-                  <td />
+                  <td className={columnRule} />
                   <td
-                    className={`px-2 py-2 text-right tabular-nums ${
+                    className={`px-2 py-2 text-right tabular-nums ${columnRule} ${
                       difference === 0 ? "text-neutral-900" : "font-medium text-red-700"
                     }`}
                   >
                     {formatOre(Math.abs(difference))}
                   </td>
+                  {showPreview ? null : <td />}
                 </tr>
               </tbody>
             </table>
           </div>
-          {previewOpen && previewUrl && attachment ? (
-            <div className="w-[44%] min-w-[18rem] border-l border-neutral-200">
+          {showPreview ? (
+            <div className="min-w-0 flex-1 overflow-hidden border-l border-neutral-200">
               <div className="border-b border-neutral-200 px-3 py-1.5 text-xs text-neutral-500">
-                {attachment.name}
+                {previewName || attachment?.name}
               </div>
               <UnderlagPreview
                 src={previewUrl}
-                mimeType={attachment.type}
-                fileName={attachment.name}
+                mimeType={attachment?.type || previewMime}
+                fileName={previewName || attachment?.name || "Underlag"}
               />
             </div>
           ) : null}
         </div>
 
-        <div className="flex flex-wrap items-end justify-between gap-3 border-t border-neutral-200 px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-200 px-4 py-3">
           <div className="space-y-1 text-sm text-neutral-700">
             <div className="flex items-baseline gap-3">
               <span className="w-14 text-neutral-600">Konto:</span>
@@ -629,12 +782,11 @@ export function VoucherForm({
                 {focusedSaldo == null ? "" : formatOre(focusedSaldo)}
               </span>
             </div>
-            <p className="pt-1 text-xs text-neutral-400">
-              Tab: konto → debet → kredit. Momskod följer kontot och kan bytas.
-              Restbelopp föreslås på nästa rad. Ctrl+S registrerar när diff är 0.
-            </p>
           </div>
-          <button
+          <div className="mr-36 flex items-center gap-3">
+            <VatHint lines={lines} />
+            <button
+            ref={registerRef}
             type="button"
             disabled={!balanced || pending || Boolean(dateError)}
             onClick={submit}
@@ -642,6 +794,7 @@ export function VoucherForm({
           >
             {pending ? "Sparar…" : "Registrera"}
           </button>
+          </div>
         </div>
 
         {error ? (
@@ -651,6 +804,29 @@ export function VoucherForm({
         ) : null}
       </div>
     </div>
+  );
+}
+
+function VatHint({ lines }: { lines: LineDraft[] }) {
+  const hint = voucherVatHint(
+    lines.map((line) => ({
+      accountNumber: line.accountNumber,
+      accountName: line.accountName,
+      vatCode: line.vatCode || null,
+      debitOre: parseAmountToOre(line.debit) ?? 0,
+      creditOre: parseAmountToOre(line.credit) ?? 0,
+    }))
+  );
+  if (!hint) return null;
+  const ok = hint === "ok";
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-xs ${
+        ok ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"
+      }`}
+    >
+      {ok ? "Moms ok" : "Moms fel"}
+    </span>
   );
 }
 

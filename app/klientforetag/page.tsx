@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/app/components/app-header";
 import { getCurrentUser } from "@/lib/auth";
+import { refreshStaleBankConnections } from "@/lib/bank-sync";
 import { listClientRows } from "@/lib/client-list-query";
 import { ClientTable } from "./client-table";
 
@@ -10,9 +11,15 @@ export const metadata: Metadata = {
   title: "Klientföretag — Omnio",
 };
 
-export default async function KlientforetagPage() {
+export default async function KlientforetagPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ bankfel?: string; bank?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/logga-in");
+  const query = await searchParams;
+  await refreshStaleBankConnections();
 
   const clients = await listClientRows();
 
@@ -37,6 +44,17 @@ export default async function KlientforetagPage() {
             Nytt företag
           </Link>
         </div>
+
+        {query.bankfel ? (
+          <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">
+            {query.bankfel}
+          </p>
+        ) : null}
+        {query.bank === "kopplad" ? (
+          <p className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-900">
+            Banken är kopplad och kontoutdraget är hämtat.
+          </p>
+        ) : null}
 
         {clients.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-neutral-300 bg-white px-6 py-16 text-center">

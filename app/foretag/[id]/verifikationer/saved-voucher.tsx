@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { formatOre } from "@/lib/money";
-import { vatCodeName } from "@/lib/vat-codes";
+import { DateTextInput } from "@/app/components/date-text-input";
+import { completeAmountDecimals, formatOre, formatOreInput, parseAmountToOre } from "@/lib/money";
+import { parseVoucherDate } from "@/lib/voucher-date";
+import { voucherVatHint } from "@/lib/vat-check";
 import { UNDERLAG_ACCEPT, validateUnderlagMeta } from "@/lib/underlag";
-import type { VoucherDetail } from "@/lib/vouchers";
-import { attachVoucherUnderlag } from "./actions";
+import type { VoucherDetail, VoucherEdit } from "@/lib/vouchers";
+import { attachVoucherUnderlag, updateVoucher } from "./actions";
 import { UnderlagPreview } from "./underlag-preview";
 import { setCardTarget } from "./voucher-draft";
 
@@ -17,6 +20,7 @@ type SavedVoucherProps = {
   companyId: string;
   voucher: VoucherDetail;
   accountBalances: Record<string, number>;
+  edits: VoucherEdit[];
   periodLocked: boolean;
   lockMessage: string | null;
 };
@@ -25,13 +29,19 @@ export function SavedVoucher({
   companyId,
   voucher,
   accountBalances,
+  edits,
   periodLocked,
   lockMessage,
 }: SavedVoucherProps) {
+  const router = useRouter();
   const listHref = `/foretag/${companyId}/verifikationer`;
   const fileRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [date, setDate] = useState(voucher.date);
+  const [text, setText] = useState(voucher.text);
+  const [lines, setLines] = useState(() => linesFromVoucher(voucher));
+  const [showEdits, setShowEdits] = useState(false);
   const [focusedAccountId, setFocusedAccountId] = useState<string | null>(
     voucher.lines[0]?.accountId ?? null
   );
@@ -40,7 +50,46 @@ export function SavedVoucher({
 
   useEffect(() => {
     setCardTarget(companyId, { kind: "saved", id: voucher.id });
-  }, [companyId, voucher.id]);
+    setDate(voucher.date);
+    setText(voucher.text);
+    setLines(linesFromVoucher(voucher));
+  }, [companyId, voucher]);
+
+  const debitOre = lines.reduce((sum, line) => sum + (parseAmountToOre(line.debit) ?? 0), 0);
+  const creditOre = lines.reduce((sum, line) => sum + (parseAmountToOre(line.credit) ?? 0), 0);
+  const canSave =
+    !periodLocked &&
+    (lines.length === 0 ||
+      (debitOre === creditOre &&
+        debitOre > 0 &&
+        lines.every(
+          (line) =>
+            line.accountId &&
+            ((parseAmountToOre(line.debit) ?? 0) > 0) !== ((parseAmountToOre(line.credit) ?? 0) > 0)
+        )));
+
+  function saveEdit() {
+    if (!canSave) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await updateVoucher(companyId, voucher.id, {
+        date,
+        text,
+        lines: lines.map((line) => ({
+          accountId: line.accountId,
+          debitOre: parseAmountToOre(line.debit) ?? 0,
+          creditOre: parseAmountToOre(line.credit) ?? 0,
+          vatCode: line.vatCode || null,
+        })),
+      });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setShowEdits(true);
+      router.refresh();
+    });
+  }
 
   const previewSrc = attachment
     ? `/foretag/${companyId}/verifikationer/${voucher.id}/underlag`
@@ -86,7 +135,7 @@ export function SavedVoucher({
           Verifikation
         </h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Sparad av {voucher.registeredByName} · kan inte ändras
+          Sparad av {voucher.registeredByName}. Alla rader kan tas bort. Finns rader kvar måste verifikationen gå jämnt ut.
         </p>
       </div>
 
@@ -101,11 +150,27 @@ export function SavedVoucher({
             </div>
             <div className="flex items-baseline gap-3">
               <span className="w-36 shrink-0">Datum</span>
-              <span className="tabular-nums text-neutral-900">{voucher.date}</span>
+              <DateTextInput
+                aria-label="Datum"
+                value={date}
+                disabled={periodLocked}
+                onChange={(event) => setDate(event.target.value)}
+                onBlur={() => {
+                  const parsed = parseVoucherDate(date, date);
+                  if (parsed.ok) setDate(parsed.iso);
+                }}
+                className="h-8 w-36 border border-neutral-300 px-2 text-sm tabular-nums"
+              />
             </div>
             <div className="flex items-baseline gap-3">
               <span className="w-36 shrink-0">Verifikationstext</span>
-              <span className="text-neutral-900">{voucher.text}</span>
+              <input
+                aria-label="Verifikationstext"
+                value={text}
+                disabled={periodLocked}
+                onChange={(event) => setText(event.target.value)}
+                className="h-8 min-w-0 flex-1 border border-neutral-300 px-2 text-sm"
+              />
             </div>
           </div>
           <div className="flex shrink-0 flex-wrap items-start gap-2">
@@ -135,6 +200,13 @@ export function SavedVoucher({
             >
               {previewOpen && attachment ? "Dölj underlag" : "Visa underlag"}
             </button>
+            <button
+              type="button"
+              className={headerButtonClass}
+              onClick={() => setShowEdits((open) => !open)}
+            >
+              {showEdits ? "Dölj redigeringar" : "Visa redigeringar"}
+            </button>
           </div>
         </div>
 
@@ -156,53 +228,98 @@ export function SavedVoucher({
                 <tr className="border-b border-neutral-200 bg-neutral-100 text-left text-xs font-medium text-neutral-600">
                   <th className="w-24 px-2 py-2">Konto</th>
                   <th className="px-2 py-2">Benämning</th>
-                  <th className="w-20 px-2 py-2">Momskod</th>
                   <th className="w-32 px-2 py-2 text-right">Debet</th>
                   <th className="w-32 px-2 py-2 text-right">Kredit</th>
+                  <th className="w-20 px-2 py-2" />
                 </tr>
               </thead>
               <tbody>
-                {voucher.lines.map((line) => {
+                {lines.map((line) => {
                   const active = line.accountId === focusedAccountId;
                   return (
                     <tr
-                      key={line.lineNumber}
-                      tabIndex={0}
+                      key={line.key}
                       onClick={() => setFocusedAccountId(line.accountId)}
-                      onFocus={() => setFocusedAccountId(line.accountId)}
-                      className={`cursor-pointer border-b border-neutral-100 ${
-                        active ? "bg-neutral-50" : ""
-                      }`}
+                      className={`border-b border-neutral-100 ${active ? "bg-neutral-50" : ""}`}
                     >
                       <td className="px-2 py-2 font-mono tabular-nums text-neutral-900">
                         {line.accountNumber}
                       </td>
                       <td className="px-2 py-2 text-neutral-700">{line.accountName}</td>
-                      <td
-                        className="px-2 py-2 font-mono text-neutral-700"
-                        title={vatCodeName(line.vatCode)}
-                      >
-                        {line.vatCode ?? ""}
+                      <td className="p-0">
+                        <input
+                          aria-label={`Debet ${line.accountNumber}`}
+                          inputMode="decimal"
+                          disabled={periodLocked}
+                          value={line.debit}
+                          onChange={(event) =>
+                            setLines((prev) =>
+                              prev.map((row) =>
+                                row.key === line.key
+                                  ? { ...row, debit: event.target.value, credit: "" }
+                                  : row
+                              )
+                            )
+                          }
+                          onBlur={(event) => {
+                            const debit = completeAmountDecimals(event.target.value);
+                            setLines((prev) =>
+                              prev.map((row) => (row.key === line.key ? { ...row, debit } : row))
+                            );
+                          }}
+                          className="h-8 w-full bg-transparent px-2 text-right text-sm tabular-nums outline-none"
+                        />
                       </td>
-                      <td className="px-2 py-2 text-right tabular-nums text-neutral-900">
-                        {line.debit > 0 ? formatOre(line.debit) : ""}
+                      <td className="p-0">
+                        <input
+                          aria-label={`Kredit ${line.accountNumber}`}
+                          inputMode="decimal"
+                          disabled={periodLocked}
+                          value={line.credit}
+                          onChange={(event) =>
+                            setLines((prev) =>
+                              prev.map((row) =>
+                                row.key === line.key
+                                  ? { ...row, credit: event.target.value, debit: "" }
+                                  : row
+                              )
+                            )
+                          }
+                          onBlur={(event) => {
+                            const credit = completeAmountDecimals(event.target.value);
+                            setLines((prev) =>
+                              prev.map((row) => (row.key === line.key ? { ...row, credit } : row))
+                            );
+                          }}
+                          className="h-8 w-full bg-transparent px-2 text-right text-sm tabular-nums outline-none"
+                        />
                       </td>
-                      <td className="px-2 py-2 text-right tabular-nums text-neutral-900">
-                        {line.credit > 0 ? formatOre(line.credit) : ""}
+                      <td className="px-2 py-1 text-right">
+                        <button
+                          type="button"
+                          disabled={periodLocked}
+                          onClick={() =>
+                            setLines((prev) => prev.filter((row) => row.key !== line.key))
+                          }
+                          className="text-sm text-neutral-600 hover:text-neutral-900 disabled:opacity-40"
+                        >
+                          Ta bort
+                        </button>
                       </td>
                     </tr>
                   );
                 })}
                 <tr className="border-t border-neutral-200 bg-neutral-50 text-sm">
-                  <td colSpan={3} className="px-2 py-2 text-neutral-600">
+                  <td colSpan={2} className="px-2 py-2 text-neutral-600">
                     Summa
                   </td>
                   <td className="px-2 py-2 text-right tabular-nums text-neutral-900">
-                    {formatOre(voucher.debitOre)}
+                    {formatOre(debitOre)}
                   </td>
                   <td className="px-2 py-2 text-right tabular-nums text-neutral-900">
-                    {formatOre(voucher.creditOre)}
+                    {formatOre(creditOre)}
                   </td>
+                  <td />
                 </tr>
               </tbody>
             </table>
@@ -221,7 +338,7 @@ export function SavedVoucher({
           ) : null}
         </div>
 
-        <div className="border-t border-neutral-200 px-4 py-3">
+        <div className="flex flex-wrap items-end justify-between gap-3 border-t border-neutral-200 px-4 py-3">
           <div className="space-y-1 text-sm text-neutral-700">
             <div className="flex items-baseline gap-3">
               <span className="w-14 text-neutral-600">Konto:</span>
@@ -236,8 +353,84 @@ export function SavedVoucher({
               </span>
             </div>
           </div>
+          <div className="flex items-center gap-3">
+            <SavedVatHint lines={lines} />
+            <button
+            type="button"
+            disabled={!canSave || pending}
+            onClick={saveEdit}
+            className="rounded-md bg-neutral-900 px-4 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+          >
+            {pending ? "Sparar…" : "Spara"}
+          </button>
+          </div>
         </div>
+        {showEdits ? (
+          <div className="border-t border-neutral-200 px-4 py-3">
+            {edits.length === 0 ? (
+              <p className="text-sm text-neutral-500">Inga redigeringar ännu.</p>
+            ) : (
+              <div className="space-y-4">
+                {edits.map((edit) => (
+                  <div key={edit.id} className="text-sm">
+                    <p className="text-neutral-600">
+                      {new Date(edit.editedAt).toLocaleString("sv-SE")} · {edit.editedByName} · tidigare{" "}
+                      {edit.previousDate} · {edit.previousText}
+                    </p>
+                    <ul className="mt-1 space-y-0.5">
+                      {edit.lines.map((line) => (
+                        <li key={line.lineNumber} className="tabular-nums text-neutral-800">
+                          {line.accountNumber} {line.accountName}{" "}
+                          {line.debit > 0 ? `debet ${formatOre(line.debit)}` : `kredit ${formatOre(line.credit)}`}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : null}
       </div>
     </div>
   );
+}
+
+function SavedVatHint({
+  lines,
+}: {
+  lines: { accountNumber: string; accountName: string; vatCode: string; debit: string; credit: string }[];
+}) {
+  const hint = voucherVatHint(
+    lines.map((line) => ({
+      accountNumber: line.accountNumber,
+      accountName: line.accountName,
+      vatCode: line.vatCode || null,
+      debitOre: parseAmountToOre(line.debit) ?? 0,
+      creditOre: parseAmountToOre(line.credit) ?? 0,
+    }))
+  );
+  if (!hint) return null;
+  const ok = hint === "ok";
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-xs ${
+        ok ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"
+      }`}
+    >
+      {ok ? "Moms ok" : "Moms fel"}
+    </span>
+  );
+}
+
+function linesFromVoucher(voucher: VoucherDetail) {
+  return voucher.lines.map((line) => ({
+    key: `${line.lineNumber}-${line.accountId}`,
+    accountId: line.accountId,
+    accountNumber: line.accountNumber,
+    accountName: line.accountName,
+    vatCode: line.vatCode ?? "",
+    debit: line.debit > 0 ? formatOreInput(line.debit) : "",
+    credit: line.credit > 0 ? formatOreInput(line.credit) : "",
+  }));
 }

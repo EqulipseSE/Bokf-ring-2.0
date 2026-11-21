@@ -329,6 +329,20 @@ export type VatPeriodQuery = {
   nr?: string | string[];
 };
 
+/** Första momsperioden som inte är deklarerad. Utan deklarationer är det perioden för första verifikationen. */
+export function firstOpenVatPeriod(
+  kind: VatPeriodKind,
+  earliestVoucherIso: string
+): VatPeriod | null {
+  const parts = parseIsoDateParts(earliestVoucherIso);
+  if (!parts) return null;
+  if (kind === "ar") return buildVatPeriod("ar", parts.year, 1);
+  if (kind === "kvartal") {
+    return buildVatPeriod("kvartal", parts.year, Math.ceil(parts.month / 3));
+  }
+  return buildVatPeriod("manad", parts.year, parts.month);
+}
+
 export function parseVatPeriod(
   query: VatPeriodQuery,
   todayIso: string

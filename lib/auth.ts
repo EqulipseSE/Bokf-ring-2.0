@@ -8,6 +8,16 @@ import { db } from "@/lib/db";
 import { sessions, users, type User } from "@/lib/db/schema";
 
 export const SESSION_COOKIE = "session";
+export const DEV_SESSION_COOKIE = "dev_session";
+
+/** Lokal genväg utan databas. Bara när NODE_ENV är development. */
+export const DEV_USER: User = {
+  id: "00000000-0000-0000-0000-000000000001",
+  email: "lokal@omnio.local",
+  name: "Lokal användare",
+  passwordHash: "",
+  createdAt: new Date(0),
+};
 
 const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000; // 30 dagar
 const SESSION_RENEWAL_THRESHOLD_MS = 15 * 24 * 60 * 60 * 1000;
@@ -35,10 +45,12 @@ export async function createSession(userId: string): Promise<void> {
 export async function destroySession(): Promise<void> {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
-  if (token) {
+  const devSession = cookieStore.get(DEV_SESSION_COOKIE)?.value === "1";
+  cookieStore.delete(SESSION_COOKIE);
+  cookieStore.delete(DEV_SESSION_COOKIE);
+  if (token && !devSession) {
     await db.delete(sessions).where(eq(sessions.id, hashToken(token)));
   }
-  cookieStore.delete(SESSION_COOKIE);
 }
 
 /**
@@ -47,6 +59,13 @@ export async function destroySession(): Promise<void> {
  */
 export const getCurrentUser = cache(async (): Promise<User | null> => {
   const cookieStore = await cookies();
+  if (
+    process.env.NODE_ENV === "development" &&
+    cookieStore.get(DEV_SESSION_COOKIE)?.value === "1"
+  ) {
+    return DEV_USER;
+  }
+
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return null;
 

@@ -32,6 +32,16 @@ export function formatOreInput(ore: number): string {
   return (ore / 100).toFixed(2).replace(".", ",");
 }
 
+/** 100 → 100,00, 100,5 → 100,50, 100,50 lämnas. Ogiltigt värde lämnas orört. */
+export function completeAmountDecimals(value: string): string {
+  const trimmed = value.trim().replace(/\s/g, "").replace(/[−–]/g, "-");
+  if (!trimmed) return "";
+  const match = /^([+-])?(\d+)(?:[,.](\d{0,2}))?$/.exec(trimmed);
+  if (!match) return value;
+  const sign = match[1] === "-" ? "-" : "";
+  return `${sign}${match[2]},${(match[3] ?? "").padEnd(2, "0")}`;
+}
+
 /** En serie: bara löpnummer. Flera serier: A1, B1, … */
 export function voucherNumberLabel(
   letter: string,

@@ -26,30 +26,42 @@ describe("arkivItems", () => {
 });
 
 describe("menuGroups", () => {
-  it("lämnar bara Bokföring och Utskrifter i ikonraden", () => {
+  it("visar meny 1 i den bestämda ordningen", () => {
     const groups = menuGroups(companyId);
     assert.deepEqual(
-      groups.map((group) => group.id),
-      ["bokforing", "utskrifter"]
+      groups.map((group) => group.label),
+      [
+        "Försäljning",
+        "Inköp",
+        "Lager",
+        "Betalningar",
+        "Bokföring",
+        "Utskrifter",
+        "Hjälp",
+      ]
     );
+    for (const label of ["Lager", "Betalningar", "Hjälp"]) {
+      assert.deepEqual(
+        groups.find((group) => group.label === label)?.items,
+        []
+      );
+    }
   });
 
-  it("lägger momsdeklarationen i Bokföring och Utskrifter", () => {
+  it("har momskontroll i Bokföring och ingen momsdeklarationsknapp", () => {
     const groups = menuGroups(companyId);
     const bokforing = groups.find((group) => group.id === "bokforing");
     const utskrifter = groups.find((group) => group.id === "utskrifter");
-    const href = companyHref(companyId, "momsdeklaration");
-    assert.ok(bokforing?.items.some((item) => item.label === "Momskontroll"));
     assert.deepEqual(
-      bokforing?.items.find((item) => item.label === "Momsdeklaration"),
-      { label: "Momsdeklaration", href, icon: "report" }
-    );
-    assert.deepEqual(
-      utskrifter?.items.find((item) => item.label === "Momsdeklaration"),
-      { label: "Momsdeklaration", href, icon: "report" }
+      bokforing?.items.slice(0, 3).map((item) => item.label),
+      ["Verifikationer", "Underlag", "Momskontroll"]
     );
     assert.equal(
-      utskrifter?.items.some((item) => item.label === "Momsrapport"),
+      bokforing?.items.some((item) => item.label === "Momsdeklaration"),
+      false
+    );
+    assert.equal(
+      utskrifter?.items.some((item) => item.label === "Momsdeklaration"),
       false
     );
   });

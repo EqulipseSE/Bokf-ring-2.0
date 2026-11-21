@@ -13,12 +13,16 @@ export function CompanySettingsForm({
   companyId,
   name,
   orgNumber,
+  bankgiro,
+  plusgiro,
   vatPeriod,
   accountingMethod,
 }: {
   companyId: string;
   name: string;
   orgNumber: string;
+  bankgiro: string;
+  plusgiro: string;
   vatPeriod: CompanyVatPeriod;
   accountingMethod: AccountingMethod;
 }) {
@@ -54,6 +58,30 @@ export function CompanySettingsForm({
           inputMode="numeric"
           pattern={ORGNR_PATTERN}
           title="Formatet är NNNNNN-NNNN, t.ex. 556036-0793"
+          className={`${fieldClass} tabular-nums`}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="bankgiro" className="text-sm font-medium text-neutral-700">
+          Bankgiro
+        </label>
+        <input
+          id="bankgiro"
+          name="bankgiro"
+          defaultValue={bankgiro}
+          inputMode="numeric"
+          className={`${fieldClass} tabular-nums`}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="plusgiro" className="text-sm font-medium text-neutral-700">
+          Plusgiro
+        </label>
+        <input
+          id="plusgiro"
+          name="plusgiro"
+          defaultValue={plusgiro}
+          inputMode="numeric"
           className={`${fieldClass} tabular-nums`}
         />
       </div>

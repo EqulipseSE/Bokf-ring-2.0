@@ -2,7 +2,8 @@
 
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { createSession, destroySession } from "@/lib/auth";
+import { cookies } from "next/headers";
+import { createSession, destroySession, DEV_SESSION_COOKIE } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { DUMMY_HASH, verifyPassword } from "@/lib/password";
@@ -35,6 +36,22 @@ export async function login(
   }
 
   await createSession(user.id);
+  redirect("/klientforetag");
+}
+
+/** Tillfällig lokal inloggning. Finns bara i development och rör inte databasen. */
+export async function devLogin(): Promise<void> {
+  if (process.env.NODE_ENV !== "development") {
+    redirect("/logga-in");
+  }
+
+  const cookieStore = await cookies();
+  cookieStore.set(DEV_SESSION_COOKIE, "1", {
+    httpOnly: true,
+    secure: false,
+    sameSite: "lax",
+    path: "/",
+  });
   redirect("/klientforetag");
 }
 

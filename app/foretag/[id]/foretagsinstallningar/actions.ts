@@ -13,8 +13,16 @@ import { db } from "@/lib/db";
 import { companies } from "@/lib/db/schema";
 import { isValidOrgNumber } from "@/lib/organisationsnummer";
 import { discardInvalidPeriodLock } from "@/lib/period-lock-query";
+import { ensureInvoiceMethodSeries } from "@/lib/db/seed-company-books";
 
 export type UpdateCompanyState = { error: string } | { ok: true } | null;
+
+function giroOrNull(value: FormDataEntryValue | null): string | null | false {
+  const text = String(value ?? "").trim();
+  if (!text) return null;
+  if (!/^\d+(-\d+)*$/.test(text)) return false;
+  return text;
+}
 
 export async function updateCompany(
   companyId: string,
@@ -43,6 +51,11 @@ export async function updateCompany(
     formData.get("accountingMethod")
   );
   if (!accountingMethod.ok) return { error: accountingMethod.error };
+  const bankgiro = giroOrNull(formData.get("bankgiro"));
+  const plusgiro = giroOrNull(formData.get("plusgiro"));
+  if (bankgiro === false || plusgiro === false) {
+    return { error: "Bankgiro och plusgiro ska bara innehålla siffror och bindestreck." };
+  }
 
   try {
     await db
@@ -52,9 +65,14 @@ export async function updateCompany(
         orgNumber,
         vatPeriod: vatPeriod.value,
         accountingMethod: accountingMethod.value,
+        bankgiro,
+        plusgiro,
       })
       .where(eq(companies.id, company.id));
     await discardInvalidPeriodLock(company.id);
+    if (accountingMethod.value === "faktura") {
+      await ensureInvoiceMethodSeries(company.id);
+    }
   } catch (err) {
     if (
       err instanceof Error &&

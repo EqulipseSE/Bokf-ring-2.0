@@ -5,6 +5,7 @@ import {
   VAT_PERIOD_LABELS,
   accountingMethodLabel,
   parseAccountingMethod,
+  parseLegalForm,
   parseVatPeriodKind,
   vatPeriodLabel,
 } from "./company-settings";
@@ -19,6 +20,14 @@ describe("parseVatPeriodKind", () => {
     assert.deepEqual(parseVatPeriodKind("ar"), { ok: true, value: "ar" });
     assert.equal(parseVatPeriodKind("vecka").ok, false);
     assert.equal(vatPeriodLabel("kvartal"), VAT_PERIOD_LABELS.kvartal);
+  });
+});
+
+describe("parseLegalForm", () => {
+  it("godkänner aktiebolag och enskild firma", () => {
+    assert.deepEqual(parseLegalForm("ab"), { ok: true, value: "ab" });
+    assert.deepEqual(parseLegalForm("ef"), { ok: true, value: "ef" });
+    assert.equal(parseLegalForm("hb").ok, false);
   });
 });
 

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { DEFAULT_SERIES_LETTER } from "@/lib/db/bas-accounts";
 import { ensureCompanyBooks } from "@/lib/db/seed-company-books";
@@ -9,6 +9,8 @@ import {
   accounts,
   users,
   voucherAttachments,
+  voucherEditLines,
+  voucherEdits,
   voucherLines,
   voucherSeries,
   vouchers,
@@ -210,6 +212,68 @@ export async function getVoucher(
     creditOre,
     attachment: attachment ?? null,
   };
+}
+
+export type VoucherEdit = {
+  id: string;
+  editedAt: Date;
+  editedByName: string;
+  previousDate: string;
+  previousText: string;
+  lines: {
+    lineNumber: number;
+    accountNumber: string;
+    accountName: string;
+    debit: number;
+    credit: number;
+    vatCode: string | null;
+  }[];
+};
+
+export async function listVoucherEdits(
+  companyId: string,
+  voucherId: string
+): Promise<VoucherEdit[]> {
+  const edits = await db
+    .select({
+      id: voucherEdits.id,
+      editedAt: voucherEdits.editedAt,
+      editedByName: users.name,
+      previousDate: voucherEdits.previousDate,
+      previousText: voucherEdits.previousText,
+    })
+    .from(voucherEdits)
+    .innerJoin(vouchers, eq(voucherEdits.voucherId, vouchers.id))
+    .innerJoin(users, eq(voucherEdits.editedBy, users.id))
+    .where(and(eq(vouchers.companyId, companyId), eq(voucherEdits.voucherId, voucherId)))
+    .orderBy(desc(voucherEdits.editedAt));
+
+  if (edits.length === 0) return [];
+
+  const lines = await db
+    .select({
+      editId: voucherEditLines.editId,
+      lineNumber: voucherEditLines.lineNumber,
+      accountNumber: accounts.number,
+      accountName: accounts.name,
+      debit: voucherEditLines.debit,
+      credit: voucherEditLines.credit,
+      vatCode: voucherEditLines.vatCode,
+    })
+    .from(voucherEditLines)
+    .innerJoin(accounts, eq(voucherEditLines.accountId, accounts.id))
+    .where(
+      inArray(
+        voucherEditLines.editId,
+        edits.map((edit) => edit.id)
+      )
+    )
+    .orderBy(voucherEditLines.lineNumber);
+
+  return edits.map((edit) => ({
+    ...edit,
+    lines: lines.filter((line) => line.editId === edit.id),
+  }));
 }
 
 /** Kontosaldo i öre från sparade verifikationer, ev. exklusive en pågående. */

@@ -7,20 +7,26 @@ export type ClientListRow = {
   accountingMethod: string;
   latestVoucherDate: string;
   status: string;
+  bankLinked: boolean;
 };
 
 export type LatestVoucherHint = {
   companyId: string;
   number: number;
   date: string;
+  /** Saknas värdet räknas raden med. Annars bara A och B. */
+  series?: string;
 };
 
-/** Senaste verifikation per företag: högst bokföringsdatum, sedan högst nummer. */
+const CLIENT_LATEST_SERIES = new Set(["A", "B"]);
+
+/** Senaste verifikation per företag: högst bokföringsdatum, sedan högst nummer. Bara serie A och B. */
 export function latestVoucherByCompany<T extends LatestVoucherHint>(
   rows: T[]
 ): Map<string, T> {
   const latest = new Map<string, T>();
   for (const row of rows) {
+    if (row.series && !CLIENT_LATEST_SERIES.has(row.series)) continue;
     const current = latest.get(row.companyId);
     if (
       !current ||

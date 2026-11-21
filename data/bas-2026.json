@@ -3245,7 +3245,7 @@
   },
   {
     "number": "5711",
-    "name": "Fraktkostnader"
+    "name": "Faktura- och påminnelseavgifter"
   },
   {
     "number": "5712",
@@ -3462,6 +3462,10 @@
   {
     "number": "6230",
     "name": "Datakommunikation"
+  },
+  {
+    "number": "6240",
+    "name": "Dataprogramvaror"
   },
   {
     "number": "6250",

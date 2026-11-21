@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { assertDateOpen } from "@/lib/period-lock";
 import { getLockedThrough } from "@/lib/period-lock-query";
-import { getAccountBalances, getVoucher } from "@/lib/vouchers";
+import { getAccountBalances, getVoucher, listVoucherEdits } from "@/lib/vouchers";
 import { SavedVoucher } from "../saved-voucher";
 
 export async function generateMetadata({
@@ -19,7 +19,10 @@ export default async function VerifikationPage({
   const { id, voucherId } = await params;
   const voucher = await getVoucher(id, voucherId);
   if (!voucher) notFound();
-  const accountBalances = await getAccountBalances(id);
+  const [accountBalances, edits] = await Promise.all([
+    getAccountBalances(id),
+    listVoucherEdits(id, voucherId),
+  ]);
   const lockedThrough = await getLockedThrough(id);
   const periodCheck = assertDateOpen(voucher.date, lockedThrough);
 
@@ -29,6 +32,7 @@ export default async function VerifikationPage({
         companyId={id}
         voucher={voucher}
         accountBalances={accountBalances}
+        edits={edits}
         periodLocked={!periodCheck.ok}
         lockMessage={periodCheck.ok ? null : periodCheck.error}
       />

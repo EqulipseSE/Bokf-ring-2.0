@@ -19,6 +19,17 @@ describe("latestVoucherByCompany", () => {
     assert.equal(latest.get("b")?.date, "2026-03-01");
   });
 
+  it("hoppar över andra serier än A och B", () => {
+    const latest = latestVoucherByCompany([
+      { companyId: "a", number: 9, date: "2026-12-01", series: "K" },
+      { companyId: "a", number: 2, date: "2026-02-10", series: "A" },
+      { companyId: "a", number: 1, date: "2026-11-01", series: "L" },
+      { companyId: "a", number: 4, date: "2026-06-01", series: "B" },
+    ]);
+    assert.equal(latest.get("a")?.date, "2026-06-01");
+    assert.equal(latest.get("a")?.number, 4);
+  });
+
   it("tom lista ger tom map", () => {
     assert.equal(latestVoucherByCompany([]).size, 0);
   });

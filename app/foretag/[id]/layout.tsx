@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { accountingMethodLabel } from "@/lib/company-settings";
 import { getCompany } from "@/lib/company";
 import { CompanyMenu } from "./company-menu";
 
@@ -35,7 +34,7 @@ export default async function ForetagLayout({
       <CompanyMenu
         companyId={company.id}
         companyName={company.name}
-        accountingMethod={accountingMethodLabel(company.accountingMethod)}
+        fiscalYear={new Date().getFullYear()}
       />
       {children}
     </div>

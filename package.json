@@ -11,16 +11,19 @@
     "db:migrate": "drizzle-kit migrate",
     "create-user": "tsx scripts/create-user.ts",
     "upgrade-accounts": "tsx scripts/upgrade-company-accounts.ts",
-    "test": "tsx --test lib/db/bas-accounts.test.ts lib/money.test.ts lib/balance-adjustment.test.ts lib/voucher-nav.test.ts lib/arkiv-menu.test.ts lib/vat-codes.test.ts lib/vat-declaration.test.ts lib/financial-reports.test.ts lib/period-lock.test.ts lib/company-settings.test.ts lib/client-list.test.ts"
+    "test": "tsx --test lib/db/bas-accounts.test.ts lib/money.test.ts lib/balance-adjustment.test.ts lib/voucher-nav.test.ts lib/arkiv-menu.test.ts lib/vat-codes.test.ts lib/vat-check.test.ts lib/vat-declaration.test.ts lib/financial-reports.test.ts lib/period-lock.test.ts lib/company-settings.test.ts lib/client-list.test.ts lib/bolagsverket.test.ts lib/document-sort.test.ts lib/document-duplicate.test.ts lib/supplier-invoice-proposal.test.ts lib/bank-account.test.ts lib/voucher-suggestion.test.ts lib/supplier-invoice-match.test.ts lib/customer-payment.test.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "drizzle-orm": "^0.45.4",
-    "next": "16.4.3",
+    "@napi-rs/canvas": "^0.1.80",
+    "next": "16.4.6",
+    "pdfjs-dist": "^5.4.296",
     "pg": "^8.23.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
@@ -31,7 +34,7 @@
     "dotenv": "^18.0.9",
     "drizzle-kit": "^0.31.11",
     "eslint": "^9",
-    "eslint-config-next": "16.4.3",
+    "eslint-config-next": "16.4.6",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5"

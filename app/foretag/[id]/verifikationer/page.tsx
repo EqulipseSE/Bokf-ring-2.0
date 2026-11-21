@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { listVouchers } from "@/lib/vouchers";
+import { ResetVouchersButton } from "./reset-vouchers-button";
 import { VoucherList } from "./voucher-list";
 
 export const metadata: Metadata = {
@@ -23,6 +24,7 @@ export default async function VerifikationerPage({
         </p>
       </div>
       <VoucherList companyId={id} items={items} />
+      <ResetVouchersButton companyId={id} />
     </main>
   );
 }

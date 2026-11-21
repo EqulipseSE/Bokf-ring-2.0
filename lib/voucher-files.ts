@@ -131,6 +131,10 @@ function resolveStoragePath(storagePath: string): string {
   return resolved;
 }
 
+export async function removeStoredUnderlag(storagePath: string): Promise<void> {
+  await removeStoredFile(storagePath);
+}
+
 async function removeStoredFile(storagePath: string): Promise<void> {
   try {
     await unlink(resolveStoragePath(storagePath));

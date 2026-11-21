@@ -35,6 +35,8 @@ export default async function ForetagsinstallningarPage({
         companyId={company.id}
         name={company.name}
         orgNumber={company.orgNumber}
+        bankgiro={company.bankgiro ?? ""}
+        plusgiro={company.plusgiro ?? ""}
         vatPeriod={vatPeriod.ok ? vatPeriod.value : "manad"}
         accountingMethod={
           accountingMethod.ok ? accountingMethod.value : "faktura"

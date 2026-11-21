@@ -3,7 +3,7 @@
 import { useMemo, useOptimistic, useState, useTransition } from "react";
 import { matchesAccountQuery } from "@/lib/db/bas-accounts";
 import type { Account } from "@/lib/db/schema";
-import { formatOre, formatOreInput, parseSignedAmountToOre } from "@/lib/money";
+import { completeAmountDecimals, formatOre, formatOreInput, parseSignedAmountToOre } from "@/lib/money";
 import type { BalanceKind } from "@/lib/balance-adjustment";
 import { VatCodeSelect } from "@/app/components/vat-code-select";
 import { AccountSearch } from "../verifikationer/account-search";
@@ -227,6 +227,7 @@ export function AccountChart({
               return (
                 <AccountRow
                   key={account.id}
+                  companyId={companyId}
                   account={account}
                   edit={isEditing ? edit : null}
                   diffOre={isEditing ? diffOre : null}
@@ -284,6 +285,7 @@ export function AccountChart({
 }
 
 function AccountRow({
+  companyId,
   account,
   edit,
   diffOre,
@@ -299,6 +301,7 @@ function AccountRow({
   onCancel,
   onSave,
 }: {
+  companyId: string;
   account: ChartAccount;
   edit: EditState | null;
   diffOre: number | null;
@@ -392,6 +395,7 @@ function AccountRow({
                 Motkonto
                 <div className="mt-1 rounded-lg border border-neutral-300 bg-white">
                   <AccountSearch
+                    companyId={companyId}
                     accounts={contraAccounts}
                     query={edit.contraQuery}
                     selectedId={edit.contraId}
@@ -475,6 +479,7 @@ function BalanceCell({
       autoFocus
       value={draft}
       onChange={(event) => onDraftChange(event.target.value)}
+      onBlur={(event) => onDraftChange(completeAmountDecimals(event.target.value))}
       onFocus={(event) => event.target.select()}
       onKeyDown={(event) => {
         if (event.key === "Escape") {

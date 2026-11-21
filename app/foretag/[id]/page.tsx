@@ -1,5 +1,6 @@
 import {
   accountingMethodLabel,
+  legalFormLabel,
   vatPeriodLabel,
 } from "@/lib/company-settings";
 import { getCompany } from "@/lib/company";
@@ -20,6 +21,14 @@ export default async function ForetagPage({
         {company.orgNumber}
       </p>
       <dl className="mt-6 grid gap-3 text-sm sm:grid-cols-2">
+        <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3">
+          <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+            Bolagsform
+          </dt>
+          <dd className="mt-1 font-medium text-neutral-900">
+            {legalFormLabel(company.legalForm)}
+          </dd>
+        </div>
         <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3">
           <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">
             Redovisningsmetod

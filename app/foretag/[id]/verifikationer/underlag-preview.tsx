@@ -4,19 +4,31 @@ type UnderlagPreviewProps = {
   src: string;
   mimeType: string;
   fileName: string;
+  /** Hög nog för en hel A4, plus läsarens verktygsrad. */
+  fullPage?: boolean;
+  /** Liten ruta, till exempel på leverantörsfakturans kort. */
+  compact?: boolean;
 };
 
 export function UnderlagPreview({
   src,
   mimeType,
   fileName,
+  fullPage = false,
+  compact = false,
 }: UnderlagPreviewProps) {
   if (mimeType === "application/pdf") {
     return (
       <iframe
         title={fileName}
         src={src}
-        className="h-full min-h-[28rem] w-full bg-neutral-100"
+        className={
+          fullPage
+            ? "h-[calc(100cqw*1.414+3.5rem)] w-full bg-neutral-100"
+            : compact
+              ? "h-[40rem] w-full bg-neutral-100"
+              : "h-full min-h-[28rem] w-full bg-neutral-100"
+        }
       />
     );
   }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { parseAmountToOre, parseSignedAmountToOre } from "./money";
+import { completeAmountDecimals, parseAmountToOre, parseSignedAmountToOre } from "./money";
 
 describe("parseSignedAmountToOre", () => {
   it("tolkar svenska belopp med tecken", () => {
@@ -19,5 +19,16 @@ describe("parseSignedAmountToOre", () => {
   it("lämnar osignerad parse orörd", () => {
     assert.equal(parseAmountToOre("-10"), null);
     assert.equal(parseAmountToOre("10,00"), 1000);
+  });
+});
+
+describe("completeAmountDecimals", () => {
+  it("fyller ut till två decimaler", () => {
+    assert.equal(completeAmountDecimals("100"), "100,00");
+    assert.equal(completeAmountDecimals("100,5"), "100,50");
+    assert.equal(completeAmountDecimals("100,50"), "100,50");
+    assert.equal(completeAmountDecimals("-12,3"), "-12,30");
+    assert.equal(completeAmountDecimals(""), "");
+    assert.equal(completeAmountDecimals("abc"), "abc");
   });
 });

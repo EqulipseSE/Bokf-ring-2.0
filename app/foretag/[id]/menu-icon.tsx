@@ -98,6 +98,21 @@ const PATHS: Record<MenuIcon, ReactNode> = {
       <path d="M12 6v12M6 12h12" />
     </>
   ),
+  trash: (
+    <>
+      <path d="M5 7h14" />
+      <path d="M9 7V5h6v2" />
+      <path d="M8 7l1 13h6l1-13" />
+    </>
+  ),
+  download: (
+    <>
+      <path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" />
+      <path d="M14 3v5h5" />
+      <path d="M12 11v6" />
+      <path d="M9.5 14.5 12 17l2.5-2.5" />
+    </>
+  ),
 };
 
 export function MenuIconSvg({

@@ -1,6 +1,8 @@
 export const PLACEHOLDERS = {
   foretagsinstallningar: "Företagsinställningar",
   importexport: "Import/export",
+  kunder: "Kunder",
+  underlag: "Underlag",
   momskontroll: "Momskontroll",
   arsavslut: "Årsavslut",
   huvudbok: "Huvudbok",
@@ -22,6 +24,10 @@ export function companyHref(
     | "balansrapport"
     | "resultatrapport"
     | "periodlasning"
+    | "kundfakturor"
+    | "kunder"
+    | "leverantorsfakturor"
+    | "leverantorer"
 ): string {
   return `/foretag/${companyId}/${slug}`;
 }
@@ -45,7 +51,9 @@ export type MenuIcon =
   | "book"
   | "report"
   | "card"
-  | "plus";
+  | "plus"
+  | "download"
+  | "trash";
 
 export type MenuItem = {
   label: string;
@@ -93,6 +101,32 @@ export function isArkivPath(pathname: string, companyId: string): boolean {
 
 export function menuGroups(companyId: string): MenuGroup[] {
   return [
+    { id: "forsaljning", label: "Försäljning", items: [
+      {
+        label: "Kundfakturor",
+        href: companyHref(companyId, "kundfakturor"),
+        icon: "document",
+      },
+      {
+        label: "Kunder",
+        href: companyHref(companyId, "kunder"),
+        icon: "buildings",
+      },
+    ] },
+    { id: "inkop", label: "Inköp", items: [
+      {
+        label: "Leverantörsfakturor",
+        href: companyHref(companyId, "leverantorsfakturor"),
+        icon: "document",
+      },
+      {
+        label: "Leverantörer",
+        href: companyHref(companyId, "leverantorer"),
+        icon: "buildings",
+      },
+    ] },
+    { id: "lager", label: "Lager", items: [] },
+    { id: "betalningar", label: "Betalningar", items: [] },
     {
       id: "bokforing",
       label: "Bokföring",
@@ -103,14 +137,14 @@ export function menuGroups(companyId: string): MenuGroup[] {
           icon: "document",
         },
         {
+          label: "Underlag",
+          href: companyHref(companyId, "underlag"),
+          icon: "download",
+        },
+        {
           label: "Momskontroll",
           href: companyHref(companyId, "momskontroll"),
           icon: "percent",
-        },
-        {
-          label: "Momsdeklaration",
-          href: companyHref(companyId, "momsdeklaration"),
-          icon: "report",
         },
         { label: "Kontoplan", href: companyHref(companyId, "kontoplan"), icon: "list" },
         {
@@ -136,13 +170,9 @@ export function menuGroups(companyId: string): MenuGroup[] {
           icon: "chart",
         },
         { label: "Huvudbok", href: companyHref(companyId, "huvudbok"), icon: "book" },
-        {
-          label: "Momsdeklaration",
-          href: companyHref(companyId, "momsdeklaration"),
-          icon: "report",
-        },
       ],
     },
+    { id: "hjalp", label: "Hjälp", items: [] },
   ];
 }
 

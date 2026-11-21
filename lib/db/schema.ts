@@ -7,6 +7,7 @@ import {
   index,
   integer,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   unique,
@@ -40,14 +41,66 @@ export const companies = pgTable("companies", {
   name: text("name").notNull(),
   // Format NNNNNN-NNNN, valideras i lib/organisationsnummer.ts.
   orgNumber: text("org_number").notNull().unique(),
+  bankgiro: text("bankgiro"),
+  plusgiro: text("plusgiro"),
   // manad | kvartal | ar — styr periodlåsning och momsdeklaration.
   vatPeriod: text("vat_period").notNull().default("manad"),
   // faktura | kontant — sparas nu, används av AI-bokföring senare.
   accountingMethod: text("accounting_method").notNull().default("faktura"),
+  // ab | ef
+  legalForm: text("legal_form").notNull().default("ab"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
 });
+
+export const articles = pgTable(
+  "articles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    number: text("number").notNull(),
+    name: text("name").notNull(),
+    unit: text("unit"),
+    unitPrice: text("unit_price"),
+    accountNumber: text("account_number"),
+    vatCode: text("vat_code"),
+  },
+  (table) => [unique("articles_company_number").on(table.companyId, table.number)]
+);
+
+export const customers = pgTable(
+  "customers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    number: text("number").notNull(),
+    name: text("name").notNull(),
+    identityNumber: text("identity_number"),
+    customerType: text("customer_type").notNull(),
+    address: text("address"),
+    postalCode: text("postal_code"),
+    city: text("city"),
+    vatNumber: text("vat_number"),
+    phone: text("phone"),
+    email: text("email"),
+    note: text("note"),
+    paymentDays: integer("payment_days").notNull().default(30),
+    receivableAccount: text("receivable_account"),
+    invoiceDelivery: text("invoice_delivery").notNull().default("epost"),
+    bankgiro: text("bankgiro"),
+    plusgiro: text("plusgiro"),
+    discount: text("discount"),
+    agreementName: text("agreement_name"),
+    agreementPath: text("agreement_path"),
+    hidden: boolean("hidden").notNull().default(false),
+  },
+  (table) => [unique("customers_company_number").on(table.companyId, table.number)]
+);
 
 /** Ett lock per företag: alla datum t.o.m. lockedThrough är låsta. */
 export const companyPeriodLocks = pgTable("company_period_locks", {
@@ -142,6 +195,41 @@ export const voucherAttachments = pgTable(
       .defaultNow(),
   },
   (t) => [unique("voucher_attachments_voucher_unique").on(t.voucherId)]
+);
+
+export const voucherEdits = pgTable(
+  "voucher_edits",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    voucherId: uuid("voucher_id")
+      .notNull()
+      .references(() => vouchers.id, { onDelete: "cascade" }),
+    editedAt: timestamp("edited_at", { withTimezone: true }).notNull().defaultNow(),
+    editedBy: uuid("edited_by")
+      .notNull()
+      .references(() => users.id),
+    previousDate: date("previous_date").notNull(),
+    previousText: text("previous_text").notNull(),
+  },
+  (t) => [index("voucher_edits_voucher_idx").on(t.voucherId)]
+);
+
+export const voucherEditLines = pgTable(
+  "voucher_edit_lines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    editId: uuid("edit_id")
+      .notNull()
+      .references(() => voucherEdits.id, { onDelete: "cascade" }),
+    lineNumber: integer("line_number").notNull(),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => accounts.id),
+    debit: bigint("debit", { mode: "number" }).notNull().default(0),
+    credit: bigint("credit", { mode: "number" }).notNull().default(0),
+    vatCode: text("vat_code"),
+  },
+  (t) => [unique("voucher_edit_lines_line").on(t.editId, t.lineNumber)]
 );
 
 export const voucherLines = pgTable(
@@ -255,6 +343,207 @@ export const voucherLinesRelations = relations(voucherLines, ({ one }) => ({
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type Company = typeof companies.$inferSelect;
+export type Article = typeof articles.$inferSelect;
+export type Customer = typeof customers.$inferSelect;
+
+export const invoices = pgTable(
+  "invoices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    number: text("number").notNull(),
+    invoiceType: text("invoice_type").notNull(),
+    customerId: uuid("customer_id").references(() => customers.id, { onDelete: "set null" }),
+    customerNumber: text("customer_number"),
+    customerName: text("customer_name").notNull(),
+    reference: text("reference"),
+    invoiceDate: date("invoice_date"),
+    paymentDays: integer("payment_days"),
+    dueDate: date("due_date"),
+    purchaseDate: date("purchase_date"),
+    ownComment: text("own_comment"),
+    invoiceComment: text("invoice_comment"),
+    pricesIncludeVat: boolean("prices_include_vat").notNull().default(false),
+    freight: text("freight"),
+    invoiceFee: text("invoice_fee"),
+    currency: text("currency").notNull().default("SEK"),
+    netOre: integer("net_ore").notNull(),
+    vatOre: integer("vat_ore").notNull(),
+    grossOre: integer("gross_ore").notNull(),
+    roundingOre: integer("rounding_ore").notNull(),
+    totalOre: integer("total_ore").notNull(),
+    paymentDate: date("payment_date"),
+  },
+  (table) => [unique("invoices_company_number").on(table.companyId, table.number)]
+);
+
+export const invoiceLines = pgTable(
+  "invoice_lines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    invoiceId: uuid("invoice_id")
+      .notNull()
+      .references(() => invoices.id, { onDelete: "cascade" }),
+    lineNumber: integer("line_number").notNull(),
+    articleId: uuid("article_id").references(() => articles.id, { onDelete: "set null" }),
+    articleNumber: text("article_number"),
+    name: text("name"),
+    unitPrice: text("unit_price"),
+    quantity: text("quantity"),
+    vatCode: text("vat_code"),
+    accountNumber: text("account_number"),
+    sumOre: integer("sum_ore").notNull(),
+  },
+  (table) => [unique("invoice_lines_invoice_line").on(table.invoiceId, table.lineNumber)]
+);
+
+export type Invoice = typeof invoices.$inferSelect;
+
+export const suppliers = pgTable(
+  "suppliers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    number: text("number").notNull(),
+    name: text("name").notNull(),
+    paymentDays: integer("payment_days").notNull().default(30),
+    /** 0 betyder att fakturan ska fördelas för hand. */
+    costAccount: text("cost_account").notNull().default("0"),
+  },
+  (table) => [unique("suppliers_company_number").on(table.companyId, table.number)]
+);
+
+export const supplierInvoices = pgTable(
+  "supplier_invoices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    supplierId: uuid("supplier_id").references(() => suppliers.id, { onDelete: "set null" }),
+    supplierNumber: text("supplier_number"),
+    supplierName: text("supplier_name").notNull(),
+    invoiceNumber: text("invoice_number").notNull(),
+    levfakturaNumber: integer("levfaktura_number").notNull(),
+    invoiceDate: date("invoice_date"),
+    dueDate: date("due_date"),
+    paymentDate: date("payment_date"),
+    totalOre: integer("total_ore").notNull(),
+    vatOre: integer("vat_ore").notNull(),
+    freightOre: integer("freight_ore").notNull(),
+    status: text("status").notNull().default("obetald"),
+    bookedInK: boolean("booked_in_k").notNull().default(false),
+    bookedInA: boolean("booked_in_a").notNull().default(false),
+    documentId: uuid("document_id").references(() => companyDocuments.id, { onDelete: "set null" }),
+  },
+  (table) => [
+    unique("supplier_invoices_company_number").on(
+      table.companyId,
+      table.supplierId,
+      table.invoiceNumber
+    ),
+    unique("supplier_invoices_levfaktura_number").on(table.companyId, table.levfakturaNumber),
+  ]
+);
+
+export const supplierInvoiceLines = pgTable(
+  "supplier_invoice_lines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    invoiceId: uuid("invoice_id")
+      .notNull()
+      .references(() => supplierInvoices.id, { onDelete: "cascade" }),
+    lineNumber: integer("line_number").notNull(),
+    accountId: uuid("account_id").references(() => accounts.id, { onDelete: "set null" }),
+    accountNumber: text("account_number").notNull(),
+    debitOre: integer("debit_ore").notNull().default(0),
+    creditOre: integer("credit_ore").notNull().default(0),
+  },
+  (table) => [unique("supplier_invoice_lines_line").on(table.invoiceId, table.lineNumber)]
+);
+
+export const bankConnections = pgTable("bank_connections", {
+  companyId: uuid("company_id")
+    .primaryKey()
+    .references(() => companies.id, { onDelete: "cascade" }),
+  sessionId: text("session_id").notNull(),
+  aspspName: text("aspsp_name").notNull(),
+  aspspCountry: text("aspsp_country").notNull(),
+  accountUids: text("account_uids").notNull(),
+  validUntil: timestamp("valid_until", { withTimezone: true }).notNull(),
+  lastFetchedAt: timestamp("last_fetched_at", { withTimezone: true }),
+});
+
+export const bankAccounts = pgTable(
+  "bank_accounts",
+  {
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    accountUid: text("account_uid").notNull(),
+    accountNumber: text("account_number").notNull(),
+    bookAccountNumber: text("book_account_number"),
+  },
+  (table) => [primaryKey({ columns: [table.companyId, table.accountUid] })]
+);
+
+export const bankLinkStates = pgTable("bank_link_states", {
+  state: text("state").primaryKey(),
+  companyId: uuid("company_id")
+    .notNull()
+    .references(() => companies.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const bankTransactions = pgTable(
+  "bank_transactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    accountUid: text("account_uid").notNull(),
+    entryReference: text("entry_reference").notNull(),
+    bookedDate: date("booked_date").notNull(),
+    amountOre: integer("amount_ore").notNull(),
+    currency: text("currency").notNull(),
+    description: text("description").notNull().default(""),
+    referenceNumber: text("reference_number"),
+    voucherId: uuid("voucher_id").references(() => vouchers.id, { onDelete: "set null" }),
+  },
+  (table) => [
+    unique("bank_transactions_entry").on(
+      table.companyId,
+      table.accountUid,
+      table.entryReference
+    ),
+  ]
+);
+
+export const companyDocuments = pgTable("company_documents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  companyId: uuid("company_id")
+    .notNull()
+    .references(() => companies.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(),
+  originalName: text("original_name").notNull(),
+  mimeType: text("mime_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  storagePath: text("storage_path").notNull(),
+  contentHash: text("content_hash"),
+  ocrNumber: text("ocr_number"),
+  invoiceNumber: text("invoice_number"),
+  totalOre: integer("total_ore"),
+  voucherId: uuid("voucher_id").references(() => vouchers.id, { onDelete: "set null" }),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type Supplier = typeof suppliers.$inferSelect;
 export type CompanyPeriodLock = typeof companyPeriodLocks.$inferSelect;
 export type Account = typeof accounts.$inferSelect;
 export type VoucherSeries = typeof voucherSeries.$inferSelect;

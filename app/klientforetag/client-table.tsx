@@ -9,16 +9,7 @@ import {
   type ClientStatusSort,
 } from "@/lib/client-list";
 import { accountingMethodLabel } from "@/lib/company-settings";
-
-function StatusPlaceholder() {
-  return (
-    <span
-      className="inline-block size-2.5 rounded-full bg-neutral-300"
-      title="Status kommer senare"
-      aria-label="Status, platshållare"
-    />
-  );
-}
+import { BankButton } from "./bank-button";
 
 export function ClientTable({ clients }: { clients: ClientListRow[] }) {
   const [statusSort, setStatusSort] = useState<ClientStatusSort>("asc");
@@ -98,14 +89,8 @@ export function ClientTable({ clients }: { clients: ClientListRow[] }) {
                   {company.latestVoucherDate}
                 </Link>
               </td>
-              <td className="p-0">
-                <Link
-                  href={`/foretag/${company.id}`}
-                  tabIndex={-1}
-                  className="flex justify-center px-5 py-4"
-                >
-                  <StatusPlaceholder />
-                </Link>
+              <td className="px-5 py-4 text-center">
+                <BankButton companyId={company.id} linked={company.bankLinked} />
               </td>
             </tr>
           ))}

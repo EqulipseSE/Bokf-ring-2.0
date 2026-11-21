@@ -6,6 +6,7 @@ import {
   VAT_BOX_SECTIONS,
   availableYears,
   buildVatPeriod,
+  firstOpenVatPeriod,
   isVatAccountNumber,
   lastDayOfMonth,
   lineContributions,
@@ -289,6 +290,24 @@ describe("buildVatPeriod", () => {
     assert.equal(buildVatPeriod("manad", 2024, 2).to, "2024-02-29");
     assert.equal(buildVatPeriod("manad", 2025, 2).to, "2025-02-28");
     assert.equal(MONTH_NAMES.length, 12);
+  });
+});
+
+describe("firstOpenVatPeriod", () => {
+  it("tar månaden för första verifikationen när inget är deklarerat", () => {
+    const august = firstOpenVatPeriod("manad", "2026-08-18");
+    assert.equal(august?.from, "2026-08-01");
+    assert.equal(august?.to, "2026-08-31");
+    const september = firstOpenVatPeriod("manad", "2026-09-01");
+    assert.equal(september?.from, "2026-09-01");
+    assert.equal(september?.to, "2026-09-30");
+  });
+
+  it("tar kvartalet eller året som första verifikationen ligger i", () => {
+    assert.equal(firstOpenVatPeriod("kvartal", "2026-08-18")?.from, "2026-07-01");
+    assert.equal(firstOpenVatPeriod("kvartal", "2026-08-18")?.to, "2026-09-30");
+    assert.equal(firstOpenVatPeriod("ar", "2026-09-12")?.from, "2026-01-01");
+    assert.equal(firstOpenVatPeriod("manad", "nej"), null);
   });
 });
 

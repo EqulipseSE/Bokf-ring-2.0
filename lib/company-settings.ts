@@ -4,6 +4,9 @@ export type CompanyVatPeriod = (typeof VAT_PERIODS)[number];
 export const ACCOUNTING_METHODS = ["faktura", "kontant"] as const;
 export type AccountingMethod = (typeof ACCOUNTING_METHODS)[number];
 
+export const LEGAL_FORMS = ["ab", "ef"] as const;
+export type LegalForm = (typeof LEGAL_FORMS)[number];
+
 export const VAT_PERIOD_LABELS: Record<CompanyVatPeriod, string> = {
   manad: "Månad",
   kvartal: "Kvartal",
@@ -13,6 +16,11 @@ export const VAT_PERIOD_LABELS: Record<CompanyVatPeriod, string> = {
 export const ACCOUNTING_METHOD_LABELS: Record<AccountingMethod, string> = {
   faktura: "Fakturametoden",
   kontant: "Kontantmetoden",
+};
+
+export const LEGAL_FORM_LABELS: Record<LegalForm, string> = {
+  ab: "Aktiebolag",
+  ef: "Enskild firma",
 };
 
 export function parseVatPeriodKind(
@@ -38,6 +46,16 @@ export function parseAccountingMethod(
   };
 }
 
+export function parseLegalForm(
+  value: unknown
+): { ok: true; value: LegalForm } | { ok: false; error: string } {
+  const raw = String(value ?? "").trim();
+  if (LEGAL_FORMS.includes(raw as LegalForm)) {
+    return { ok: true, value: raw as LegalForm };
+  }
+  return { ok: false, error: "Välj bolagsform: aktiebolag eller enskild firma." };
+}
+
 export function vatPeriodLabel(value: string | null | undefined): string {
   const parsed = parseVatPeriodKind(value ?? "manad");
   return parsed.ok ? VAT_PERIOD_LABELS[parsed.value] : VAT_PERIOD_LABELS.manad;
@@ -48,4 +66,9 @@ export function accountingMethodLabel(value: string | null | undefined): string 
   return parsed.ok
     ? ACCOUNTING_METHOD_LABELS[parsed.value]
     : ACCOUNTING_METHOD_LABELS.faktura;
+}
+
+export function legalFormLabel(value: string | null | undefined): string {
+  const parsed = parseLegalForm(value ?? "ab");
+  return parsed.ok ? LEGAL_FORM_LABELS[parsed.value] : LEGAL_FORM_LABELS.ab;
 }
