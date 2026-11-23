@@ -24,6 +24,8 @@ type AccountSearchProps = {
   /** Tomt kontofält som lämnas. Summan ska då tas bort. */
   onEmptyBlur?: () => void;
   inputRef?: (el: HTMLInputElement | null) => void;
+  /** Bara siffror, samma träffar som när man söker på kontonummer. */
+  digitsOnly?: boolean;
   /** Ifylld ruta. I konteringsraden lämnas fältet utan ram. */
   boxed?: boolean;
   /** Liten pil som öppnar kontolistan. */
@@ -42,6 +44,7 @@ export function AccountSearch({
   onFocusLine,
   onEmptyBlur,
   inputRef,
+  digitsOnly = false,
   boxed = false,
   arrow = false,
 }: AccountSearchProps) {
@@ -152,7 +155,7 @@ export function AccountSearch({
         autoComplete="off"
         value={query}
         onChange={(event) => {
-          const value = event.target.value;
+          const value = digitsOnly ? event.target.value.replace(/\D/g, "").slice(0, 4) : event.target.value;
           onQueryChange(value);
           onSelect(null);
           setHighlight(0);

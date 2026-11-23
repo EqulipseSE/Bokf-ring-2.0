@@ -91,12 +91,8 @@ describe("menuGroups", () => {
       }
     );
     assert.deepEqual(
-      utskrifter?.items.find((item) => item.label === "Resultatrapport"),
-      {
-        label: "Resultatrapport",
-        href: companyHref(companyId, "resultatrapport"),
-        icon: "chart",
-      }
+      utskrifter?.items.map((item) => item.label),
+      ["Balansrapport", "Resultatrapport", "Kontoanalys", "Huvudbok"]
     );
   });
 });

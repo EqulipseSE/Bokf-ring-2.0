@@ -10,6 +10,7 @@ export type DraftLine = {
   accountNumber: string;
   accountName: string;
   vatCode: string;
+  resultUnit: string;
   debit: string;
   credit: string;
 };

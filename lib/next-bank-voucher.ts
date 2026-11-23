@@ -6,6 +6,8 @@ import { db } from "@/lib/db";
 import { articles, bankAccounts, bankTransactions, companies, companyDocuments, supplierInvoices } from "@/lib/db/schema";
 import { readCompanyDocument } from "@/lib/company-documents";
 import { matchSupplierInvoice } from "@/lib/supplier-invoice-match";
+import { extractPdfRuns } from "@/lib/pdf-runs";
+import { salaryPostings } from "@/lib/salary-postings";
 import { suggestedPostings, type SuggestedPosting } from "@/lib/voucher-suggestion";
 
 export type NextVoucherTransaction = {
@@ -70,6 +72,7 @@ export async function nextUnbookedTransaction(
   };
   let match = documents.find((document) => matches(document));
   let text = "";
+  let stored: Uint8Array | null = null;
   if (!match && reference.length >= 4) {
     for (const document of documents) {
       if (document.mimeType !== "application/pdf") continue;
@@ -85,7 +88,10 @@ export async function nextUnbookedTransaction(
   }
   if (match && !text && match.mimeType === "application/pdf") {
     const file = await readCompanyDocument(companyId, match.id);
-    if (file) text = textFromPdfBytes(file.stored);
+    if (file) {
+      stored = file.stored;
+      text = textFromPdfBytes(file.stored);
+    }
   }
 
   const articleRows = await db
@@ -106,6 +112,7 @@ export async function nextUnbookedTransaction(
     .where(eq(companies.id, companyId))
     .limit(1);
   const accountingMethod = company?.accountingMethod === "kontant" ? "kontant" : "faktura";
+  const bookAccountNumber = bankAccount?.bookAccountNumber || "1930";
 
   const invoiceRows = await db
     .select({
@@ -147,7 +154,7 @@ export async function nextUnbookedTransaction(
       date: transaction.bookedDate,
       text: transaction.description.trim() || "Transaktion",
       amountOre: transaction.amountOre,
-      bookAccountNumber: bankAccount?.bookAccountNumber || "1930",
+      bookAccountNumber,
       document: invoiceDocument ? { ...invoiceDocument, link: false } : null,
       postings: supplierParts.flatMap((part) =>
         suggestedPostings({
@@ -162,22 +169,29 @@ export async function nextUnbookedTransaction(
     };
   }
 
-  const postings = match
-    ? suggestedPostings({
-        kind: match.kind,
-        text: `${transaction.description}\n${text}`,
-        revenueAccount: revenue?.accountNumber ?? null,
-        grossOre: Math.abs(transaction.amountOre),
-        accountingMethod,
-      })
-    : [];
+  const salary =
+    match?.kind === "lon" && stored
+      ? salaryPostings(extractPdfRuns(stored), bookAccountNumber)
+      : [];
+  const postings =
+    salary.length > 0
+      ? salary
+      : match
+        ? suggestedPostings({
+            kind: match.kind,
+            text: `${transaction.description}\n${text}`,
+            revenueAccount: revenue?.accountNumber ?? null,
+            grossOre: Math.abs(transaction.amountOre),
+            accountingMethod,
+          })
+        : [];
 
   return {
     id: transaction.id,
     date: transaction.bookedDate,
     text: transaction.description.trim() || "Transaktion",
     amountOre: transaction.amountOre,
-    bookAccountNumber: bankAccount?.bookAccountNumber || "1930",
+    bookAccountNumber,
     document: match
       ? { id: match.id, name: match.originalName, mimeType: match.mimeType, link: true }
       : null,

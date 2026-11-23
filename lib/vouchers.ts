@@ -1,12 +1,13 @@
 import "server-only";
 
-import { and, asc, desc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { DEFAULT_SERIES_LETTER } from "@/lib/db/bas-accounts";
 import { ensureCompanyBooks } from "@/lib/db/seed-company-books";
 import { voucherNumberLabel } from "@/lib/money";
 import {
   accounts,
+  companyDocuments,
   users,
   voucherAttachments,
   voucherEditLines,
@@ -48,6 +49,7 @@ export type VoucherDetail = {
     debit: number;
     credit: number;
     vatCode: string | null;
+    resultUnit: string | null;
     text: string | null;
   }[];
   debitOre: number;
@@ -170,7 +172,7 @@ export async function getVoucher(
 
   if (!header) return null;
 
-  const [attachment] = await db
+  const [uploaded] = await db
     .select({
       originalName: voucherAttachments.originalName,
       mimeType: voucherAttachments.mimeType,
@@ -178,6 +180,23 @@ export async function getVoucher(
     .from(voucherAttachments)
     .where(eq(voucherAttachments.voucherId, header.id))
     .limit(1);
+  const [linked] = uploaded
+    ? []
+    : await db
+        .select({
+          originalName: companyDocuments.originalName,
+          mimeType: companyDocuments.mimeType,
+        })
+        .from(companyDocuments)
+        .where(
+          and(
+            eq(companyDocuments.companyId, companyId),
+            eq(companyDocuments.voucherId, header.id),
+            isNull(companyDocuments.deletedAt)
+          )
+        )
+        .limit(1);
+  const attachment = uploaded ?? linked ?? null;
 
   const lines = await db
     .select({
@@ -188,6 +207,7 @@ export async function getVoucher(
       debit: voucherLines.debit,
       credit: voucherLines.credit,
       vatCode: voucherLines.vatCode,
+      resultUnit: voucherLines.resultUnit,
       text: voucherLines.text,
     })
     .from(voucherLines)

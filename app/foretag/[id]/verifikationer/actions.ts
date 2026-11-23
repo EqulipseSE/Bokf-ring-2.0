@@ -37,6 +37,7 @@ export type SaveVoucherLineInput = {
   debitOre: number;
   creditOre: number;
   vatCode?: string | null;
+  resultUnit?: string | null;
 };
 
 export type SaveVoucherInput = {
@@ -216,6 +217,7 @@ export async function saveVoucher(
             debit: line.debitOre,
             credit: line.creditOre,
             vatCode,
+            resultUnit: line.resultUnit?.trim() || null,
           };
         })
       );
@@ -477,6 +479,7 @@ export async function updateVoucher(
             debit: line.debit,
             credit: line.credit,
             vatCode: line.vatCode,
+            resultUnit: line.resultUnit,
           }))
         );
       }
@@ -497,6 +500,7 @@ export async function updateVoucher(
               debit: line.debitOre,
               credit: line.creditOre,
               vatCode: parsedVat.ok ? parsedVat.code : null,
+              resultUnit: line.resultUnit?.trim() || null,
             };
           })
         );

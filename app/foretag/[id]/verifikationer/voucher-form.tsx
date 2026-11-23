@@ -24,6 +24,7 @@ type LineDraft = {
   accountNumber: string;
   accountName: string;
   vatCode: string;
+  resultUnit: string;
   debit: string;
   credit: string;
 };
@@ -44,6 +45,7 @@ function createLine(): LineDraft {
     accountNumber: "",
     accountName: "",
     vatCode: "",
+    resultUnit: "",
     debit: "",
     credit: "",
   };
@@ -122,6 +124,7 @@ export function VoucherForm({
   const skipPersist = useRef(false);
   const accountRefs = useRef<Array<HTMLInputElement | null>>([]);
   const debitRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const resultUnitRefs = useRef<Array<HTMLInputElement | null>>([]);
   const creditRefs = useRef<Array<HTMLInputElement | null>>([]);
   const registerRef = useRef<HTMLButtonElement>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -181,6 +184,13 @@ export function VoucherForm({
         debitRefs.current[index]?.focus();
         debitRefs.current[index]?.select();
       }
+    });
+  }
+
+  function focusResultUnit(index: number) {
+    window.requestAnimationFrame(() => {
+      resultUnitRefs.current[index]?.focus();
+      resultUnitRefs.current[index]?.select();
     });
   }
 
@@ -357,6 +367,7 @@ export function VoucherForm({
         debitOre: parseAmountToOre(line.debit) ?? 0,
         creditOre: parseAmountToOre(line.credit) ?? 0,
         vatCode: line.vatCode || null,
+        resultUnit: line.resultUnit.trim() || null,
       }));
 
     startTransition(async () => {
@@ -421,6 +432,7 @@ export function VoucherForm({
         draft.lines.map((line) => ({
           ...line,
           vatCode: line.vatCode ?? "",
+          resultUnit: line.resultUnit ?? "",
         }))
       );
       setAttachment(draft.attachment);
@@ -555,7 +567,7 @@ export function VoucherForm({
             >
               Koppla underlag
             </button>
-            {previewUrl ? (
+            {attachment || (suggestionApplied && suggestion?.documentId) ? (
               <button
                 type="button"
                 className={headerButtonClass}
@@ -581,7 +593,8 @@ export function VoucherForm({
             <table className={`${showPreview ? "w-auto" : "w-full"} table-fixed border-collapse text-sm`}>
               <colgroup>
                 <col style={{ width: "6rem" }} />
-                <col style={{ width: "22rem" }} />
+                <col style={{ width: "6.25rem" }} />
+                <col style={{ width: "18rem" }} />
                 <col style={{ width: "8rem" }} />
                 <col style={{ width: "8rem" }} />
                 {showPreview ? null : <col />}
@@ -589,6 +602,7 @@ export function VoucherForm({
               <thead>
                 <tr className="border-b border-neutral-300 bg-neutral-100 text-left text-xs font-medium text-neutral-600">
                   <th className={`w-24 px-2 py-2 ${firstColumn} ${columnRule}`}>Konto</th>
+                  <th className={`whitespace-nowrap px-2 py-2 ${columnRule}`}>Resultatenhet</th>
                   <th className={`px-2 py-2 ${columnRule}`}>Benämning</th>
                   <th className={`w-32 px-2 py-2 text-right ${columnRule}`}>Debet</th>
                   <th className={`w-32 px-2 py-2 text-right ${columnRule}`}>Kredit</th>
@@ -632,12 +646,29 @@ export function VoucherForm({
                           applyAccount(index, account);
                         }}
                         onEmptyBlur={() => updateLine(index, { debit: "", credit: "" })}
-                        onCommit={() => focusAmountAfterAccount(index)}
+                        onCommit={() => focusResultUnit(index)}
                         onBlankEnter={() => {
                           if (!balanced) return false;
                           registerRef.current?.focus();
                           return true;
                         }}
+                      />
+                    </td>
+                    <td className={`p-0 align-top ${columnRule}`}>
+                      <input
+                        ref={(el) => {
+                          resultUnitRefs.current[index] = el;
+                        }}
+                        value={line.resultUnit}
+                        aria-label={`Resultatenhet rad ${index + 1}`}
+                        onChange={(event) => updateLine(index, { resultUnit: event.target.value })}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            focusAmountAfterAccount(index);
+                          }
+                        }}
+                        className={`${cellInputClass} w-full min-w-0`}
                       />
                     </td>
                     <td className={`p-0 align-middle ${columnRule}`}>
@@ -726,7 +757,7 @@ export function VoucherForm({
                   </tr>
                 ))}
                 <tr className="border-t border-neutral-300 bg-neutral-50 text-sm">
-                  <td colSpan={2} className={`px-2 py-2 text-neutral-600 ${firstColumn} ${columnRule}`}>
+                  <td colSpan={3} className={`px-2 py-2 text-neutral-600 ${firstColumn} ${columnRule}`}>
                     Summa
                   </td>
                   <td className={`px-2 py-2 text-right tabular-nums text-neutral-900 ${columnRule}`}>
@@ -738,7 +769,7 @@ export function VoucherForm({
                   {showPreview ? null : <td />}
                 </tr>
                 <tr className="text-sm">
-                  <td colSpan={2} className={`px-2 py-2 text-neutral-600 ${firstColumn} ${columnRule}`}>
+                  <td colSpan={3} className={`px-2 py-2 text-neutral-600 ${firstColumn} ${columnRule}`}>
                     Diff
                   </td>
                   <td className={columnRule} />

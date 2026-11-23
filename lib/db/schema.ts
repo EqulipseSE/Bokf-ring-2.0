@@ -228,6 +228,7 @@ export const voucherEditLines = pgTable(
     debit: bigint("debit", { mode: "number" }).notNull().default(0),
     credit: bigint("credit", { mode: "number" }).notNull().default(0),
     vatCode: text("vat_code"),
+    resultUnit: text("result_unit"),
   },
   (t) => [unique("voucher_edit_lines_line").on(t.editId, t.lineNumber)]
 );
@@ -247,6 +248,7 @@ export const voucherLines = pgTable(
     credit: bigint("credit", { mode: "number" }).notNull().default(0),
     vatCode: text("vat_code"),
     text: text("text"),
+    resultUnit: text("result_unit"),
   },
   (t) => [
     unique("voucher_lines_voucher_line_unique").on(t.voucherId, t.lineNumber),

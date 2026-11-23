@@ -23,6 +23,7 @@ export function companyHref(
     | "momsdeklaration"
     | "balansrapport"
     | "resultatrapport"
+    | "kontoanalys"
     | "periodlasning"
     | "kundfakturor"
     | "kunder"
@@ -169,6 +170,7 @@ export function menuGroups(companyId: string): MenuGroup[] {
           href: companyHref(companyId, "resultatrapport"),
           icon: "chart",
         },
+        { label: "Kontoanalys", href: companyHref(companyId, "kontoanalys"), icon: "report" },
         { label: "Huvudbok", href: companyHref(companyId, "huvudbok"), icon: "book" },
       ],
     },
