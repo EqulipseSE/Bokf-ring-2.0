@@ -7,7 +7,12 @@ import { completeAmountDecimals, formatOre, formatOreInput, parseSignedAmountToO
 import type { BalanceKind } from "@/lib/balance-adjustment";
 import { VatCodeSelect } from "@/app/components/vat-code-select";
 import { AccountSearch } from "../verifikationer/account-search";
-import { saveBalanceAdjustment, setAccountActive, setAccountVatCode } from "./actions";
+import {
+  saveBalanceAdjustment,
+  setAccountActive,
+  setAccountAllowsResultUnit,
+  setAccountVatCode,
+} from "./actions";
 
 type ChartAccount = {
   id: string;
@@ -15,6 +20,7 @@ type ChartAccount = {
   name: string;
   vatCode: string | null;
   active: boolean;
+  allowsResultUnit: boolean;
   openingOre: number;
   closingOre: number;
 };
@@ -46,12 +52,16 @@ export function AccountChart({
       current,
       update:
         | { type: "active"; id: string; active: boolean }
+        | { type: "resultUnit"; id: string; allowsResultUnit: boolean }
         | { type: "vat"; id: string; vatCode: string | null }
         | { type: "balance"; id: string; openingOre: number; closingOre: number }
     ) =>
       current.map((account) => {
         if (account.id !== update.id) return account;
         if (update.type === "active") return { ...account, active: update.active };
+        if (update.type === "resultUnit") {
+          return { ...account, allowsResultUnit: update.allowsResultUnit };
+        }
         if (update.type === "vat") return { ...account, vatCode: update.vatCode };
         return {
           ...account,
@@ -104,6 +114,27 @@ export function AccountChart({
           type: "vat",
           id: account.id,
           vatCode: account.vatCode,
+        });
+        setError(result.error);
+      }
+    });
+  }
+
+  function toggleResultUnit(account: ChartAccount, allowsResultUnit: boolean) {
+    if (allowsResultUnit === account.allowsResultUnit) return;
+    setError(null);
+    startTransition(async () => {
+      setOptimistic({ type: "resultUnit", id: account.id, allowsResultUnit });
+      const result = await setAccountAllowsResultUnit(
+        companyId,
+        account.id,
+        allowsResultUnit
+      );
+      if (!result.ok) {
+        setOptimistic({
+          type: "resultUnit",
+          id: account.id,
+          allowsResultUnit: account.allowsResultUnit,
         });
         setError(result.error);
       }
@@ -193,7 +224,8 @@ export function AccountChart({
       </p>
       <p className="text-xs text-neutral-400">
         Ikryssad = aktiv vid bokföring. Inaktiva syns här men inte i
-        kontosöket. Momskod följer med vid kontering och kan ändras där.
+        kontosöket. Res.enh. styr om Enter efter konto går till
+        resultatenhet. Momskod följer med vid kontering och kan ändras där.
         Klicka på ett belopp för att ändra saldo.
       </p>
 
@@ -212,6 +244,9 @@ export function AccountChart({
               </th>
               <th className="w-24 py-3.5 pr-4 font-medium">Nummer</th>
               <th className="px-4 py-3.5 font-medium">Namn</th>
+              <th className="w-20 px-2 py-3.5 text-center font-medium" title="Resultatenhet">
+                Res.enh.
+              </th>
               <th className="w-44 px-4 py-3.5 font-medium">Momskod</th>
               <th className="w-36 px-4 py-3.5 text-right font-medium">
                 Ingående saldo
@@ -235,6 +270,7 @@ export function AccountChart({
                   canSave={isEditing && canSave}
                   contraAccounts={contraAccounts}
                   onToggle={toggle}
+                  onResultUnitChange={toggleResultUnit}
                   onVatChange={setVat}
                   onStartEdit={startEdit}
                   onDraftChange={(draft) =>
@@ -270,7 +306,7 @@ export function AccountChart({
             {filtered.length === 0 ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   className="px-4 py-10 text-center text-neutral-500"
                 >
                   Inga konton matchar sökningen.
@@ -293,6 +329,7 @@ function AccountRow({
   canSave,
   contraAccounts,
   onToggle,
+  onResultUnitChange,
   onVatChange,
   onStartEdit,
   onDraftChange,
@@ -309,6 +346,7 @@ function AccountRow({
   canSave: boolean;
   contraAccounts: Account[];
   onToggle: (account: ChartAccount, active: boolean) => void;
+  onResultUnitChange: (account: ChartAccount, allowsResultUnit: boolean) => void;
   onVatChange: (account: ChartAccount, vatCode: string | null) => void;
   onStartEdit: (account: ChartAccount, kind: BalanceKind) => void;
   onDraftChange: (draft: string) => void;
@@ -346,6 +384,17 @@ function AccountRow({
         >
           {account.name}
         </td>
+        <td className="px-2 py-2.5 text-center">
+          <input
+            type="checkbox"
+            checked={account.allowsResultUnit}
+            onChange={(event) =>
+              onResultUnitChange(account, event.target.checked)
+            }
+            aria-label={`Resultatenhet för ${account.number} ${account.name}`}
+            className="h-4 w-4 accent-neutral-900"
+          />
+        </td>
         <td className="px-4 py-2.5">
           <VatCodeSelect
             value={account.vatCode ?? ""}
@@ -378,7 +427,7 @@ function AccountRow({
       </tr>
       {showPanel && edit ? (
         <tr className="bg-neutral-50/80">
-          <td colSpan={6} className="px-4 py-3">
+          <td colSpan={7} className="px-4 py-3">
             <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
               <div>
                 <p className="text-xs text-neutral-500">

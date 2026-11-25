@@ -14,6 +14,7 @@ export type SavedAccount = {
   number: string;
   name: string;
   vatCode: string | null;
+  allowsResultUnit: boolean;
 };
 
 export type SaveAccountResult =
@@ -83,6 +84,7 @@ export async function createAccount(
         number: accounts.number,
         name: accounts.name,
         vatCode: accounts.vatCode,
+        allowsResultUnit: accounts.allowsResultUnit,
       });
     refresh(company.id);
     return { ok: true, account: created };
@@ -120,6 +122,7 @@ export async function updateAccount(
         number: accounts.number,
         name: accounts.name,
         vatCode: accounts.vatCode,
+        allowsResultUnit: accounts.allowsResultUnit,
       });
     if (!updated) return { ok: false, error: "Kontot finns inte." };
     refresh(company.id);

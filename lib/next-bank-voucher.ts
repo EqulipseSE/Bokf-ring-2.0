@@ -35,18 +35,17 @@ function salaryDate(fileName: string): string | null {
   return match?.[1] ?? null;
 }
 
+/** Alltid den tidigaste obokförda bankraden — aldrig en senare. */
 export async function nextUnbookedTransaction(
-  companyId: string,
-  afterId: string | null
+  companyId: string
 ): Promise<NextVoucherTransaction | null> {
   const rows = await db
     .select()
     .from(bankTransactions)
     .where(and(eq(bankTransactions.companyId, companyId), isNull(bankTransactions.voucherId)))
-    .orderBy(asc(bankTransactions.bookedDate), asc(bankTransactions.entryReference));
-  if (rows.length === 0) return null;
-  const start = afterId ? rows.findIndex((row) => row.id === afterId) + 1 : 0;
-  const transaction = rows[start] ?? null;
+    .orderBy(asc(bankTransactions.bookedDate), asc(bankTransactions.entryReference))
+    .limit(1);
+  const transaction = rows[0] ?? null;
   if (!transaction) return null;
 
   const [bankAccount] = await db

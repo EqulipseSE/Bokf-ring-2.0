@@ -53,6 +53,41 @@ export async function setAccountActive(
   return { ok: true, active: updated.active };
 }
 
+export type SetAccountAllowsResultUnitResult =
+  | { ok: true; allowsResultUnit: boolean }
+  | { ok: false; error: string };
+
+export async function setAccountAllowsResultUnit(
+  companyId: string,
+  accountId: string,
+  allowsResultUnit: boolean
+): Promise<SetAccountAllowsResultUnitResult> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/logga-in");
+
+  const company = await getCompany(companyId);
+  if (!company) {
+    return { ok: false, error: "Företaget finns inte." };
+  }
+
+  const [updated] = await db
+    .update(accounts)
+    .set({ allowsResultUnit })
+    .where(and(eq(accounts.id, accountId), eq(accounts.companyId, company.id)))
+    .returning({
+      id: accounts.id,
+      allowsResultUnit: accounts.allowsResultUnit,
+    });
+
+  if (!updated) {
+    return { ok: false, error: "Kontot finns inte." };
+  }
+
+  revalidatePath(`/foretag/${company.id}/kontoplan`);
+  revalidatePath(`/foretag/${company.id}/verifikationer/ny`);
+  return { ok: true, allowsResultUnit: updated.allowsResultUnit };
+}
+
 export type SetAccountVatCodeResult =
   | { ok: true; vatCode: string | null }
   | { ok: false; error: string };

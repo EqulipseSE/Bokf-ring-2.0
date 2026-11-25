@@ -42,6 +42,7 @@ export default async function KontoplanPage({
             name: account.name,
             vatCode: account.vatCode,
             active: account.active,
+            allowsResultUnit: account.allowsResultUnit,
             openingOre: opening[account.id] ?? 0,
             closingOre: closing[account.id] ?? 0,
           }))}

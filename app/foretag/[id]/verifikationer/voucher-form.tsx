@@ -110,12 +110,12 @@ export function VoucherForm({
   const [previewName, setPreviewName] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [bankTransactionId, setBankTransactionId] = useState<string | null>(null);
-  const cursorRef = useRef<string | null>(null);
   const [suggestion, setSuggestion] = useState<{
     documentId: string | null;
     postings: { accountNumber: string; debitOre: number; creditOre: number }[];
   } | null>(null);
   const [suggestionApplied, setSuggestionApplied] = useState(false);
+  const linesBeforeSuggestion = useRef<LineDraft[] | null>(null);
   const [transactionNote, setTransactionNote] = useState<string | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const dateRef = useRef<HTMLInputElement>(null);
@@ -165,6 +165,7 @@ export function VoucherForm({
                 accountNumber: account?.number ?? line.accountNumber,
                 accountName: account?.name ?? "",
                 vatCode: account?.vatCode ?? "",
+                resultUnit: account?.allowsResultUnit ? line.resultUnit : "",
                 debit: line.debit || remainder.debit,
                 credit: line.credit || remainder.credit,
               }
@@ -172,6 +173,14 @@ export function VoucherForm({
         )
       );
     });
+  }
+
+  function commitAfterAccount(index: number, account?: Account | null) {
+    if (account?.allowsResultUnit) {
+      focusResultUnit(index);
+      return;
+    }
+    focusAmountAfterAccount(index);
   }
 
   function focusAmountAfterAccount(index: number) {
@@ -246,7 +255,7 @@ export function VoucherForm({
     setTransactionNote(null);
     setError(null);
     startTransactionLoad(async () => {
-      const result = await nextVoucherTransaction(companyId, cursorRef.current);
+      const result = await nextVoucherTransaction(companyId);
       if (!result.ok) {
         setError(result.error);
         return;
@@ -256,11 +265,14 @@ export function VoucherForm({
         setTransactionNote("Inga fler obokförda transaktioner.");
         return;
       }
+      if (transaction.id === bankTransactionId) {
+        setTransactionNote("Bokför den aktuella transaktionen innan nästa hämtas.");
+        return;
+      }
       const account = accounts.find((item) => item.number === transaction.bookAccountNumber);
       const amount = formatOreInput(Math.abs(transaction.amountOre));
       const incoming = transaction.amountOre > 0;
       if (previewUrl?.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
-      cursorRef.current = transaction.id;
       setBankTransactionId(transaction.id);
       setDateInput(transaction.date);
       setAnchorDate(transaction.date);
@@ -282,6 +294,7 @@ export function VoucherForm({
       );
       setAttachment(null);
       setSuggestionApplied(false);
+      linesBeforeSuggestion.current = null;
       if (transaction.document) {
         setSuggestion({
           documentId: transaction.document.link ? transaction.document.id : null,
@@ -302,11 +315,18 @@ export function VoucherForm({
   function applySuggestion() {
     if (!suggestion) return;
     if (suggestionApplied) {
-      setLines((prev) => withTrailingEmpty([prev[0] ?? createLine(), ...emptyLines(7)]));
+      const previous = linesBeforeSuggestion.current;
+      linesBeforeSuggestion.current = null;
+      if (previous) {
+        setLines(withTrailingEmpty(previous));
+      } else {
+        setLines((prev) => withTrailingEmpty([prev[0] ?? createLine(), ...emptyLines(7)]));
+      }
       setSuggestionApplied(false);
       setPreviewOpen(false);
       return;
     }
+    linesBeforeSuggestion.current = lines.map((line) => ({ ...line }));
     const extra = suggestion.postings.map((posting) => {
       const account = accounts.find((item) => item.number === posting.accountNumber);
       return {
@@ -326,24 +346,35 @@ export function VoucherForm({
 
   const shortcutRef = useRef({
     showSuggestion: false,
+    canHideSuggestion: false,
+    canFetchNext: true,
     loading: false,
     apply: () => {},
     next: () => {},
   });
   shortcutRef.current = {
     showSuggestion: Boolean(suggestion) && !suggestionApplied,
+    canHideSuggestion: Boolean(suggestion) && suggestionApplied,
+    canFetchNext: !bankTransactionId,
     loading: loadingTransaction,
     apply: applySuggestion,
     next: loadNextTransaction,
   };
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if (event.key !== "+" || event.repeat) return;
-      event.preventDefault();
+      if (event.repeat) return;
       const current = shortcutRef.current;
       if (current.loading) return;
-      if (current.showSuggestion) current.apply();
-      else current.next();
+      if (event.key === "+") {
+        event.preventDefault();
+        if (current.showSuggestion) current.apply();
+        else if (current.canFetchNext) current.next();
+        return;
+      }
+      if (event.key === "-" && current.canHideSuggestion) {
+        event.preventDefault();
+        current.apply();
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -398,9 +429,9 @@ export function VoucherForm({
       setPreviewUrl(null);
       setPreviewOpen(false);
       setBankTransactionId(null);
-      cursorRef.current = null;
       setSuggestion(null);
       setSuggestionApplied(false);
+      linesBeforeSuggestion.current = null;
       setAttachmentError(null);
       skipPersist.current = true;
       clearDraft(companyId);
@@ -551,7 +582,7 @@ export function VoucherForm({
               <button
                 type="button"
                 onClick={applySuggestion}
-                title="+"
+                title={suggestionApplied ? "-" : "+"}
                 className="h-11 rounded-md border border-sky-300 bg-sky-100 px-5 text-base font-medium text-sky-950 transition hover:bg-sky-200"
               >
                 {suggestionApplied ? "Dölj förslag" : "Visa förslag"}
@@ -646,7 +677,7 @@ export function VoucherForm({
                           applyAccount(index, account);
                         }}
                         onEmptyBlur={() => updateLine(index, { debit: "", credit: "" })}
-                        onCommit={() => focusResultUnit(index)}
+                        onCommit={(account) => commitAfterAccount(index, account)}
                         onBlankEnter={() => {
                           if (!balanced) return false;
                           registerRef.current?.focus();
@@ -660,6 +691,12 @@ export function VoucherForm({
                           resultUnitRefs.current[index] = el;
                         }}
                         value={line.resultUnit}
+                        disabled={
+                          !(
+                            accounts.find((account) => account.id === line.accountId)
+                              ?.allowsResultUnit ?? false
+                          )
+                        }
                         aria-label={`Resultatenhet rad ${index + 1}`}
                         onChange={(event) => updateLine(index, { resultUnit: event.target.value })}
                         onKeyDown={(event) => {
@@ -668,7 +705,7 @@ export function VoucherForm({
                             focusAmountAfterAccount(index);
                           }
                         }}
-                        className={`${cellInputClass} w-full min-w-0`}
+                        className={`${cellInputClass} w-full min-w-0 disabled:text-neutral-400`}
                       />
                     </td>
                     <td className={`p-0 align-middle ${columnRule}`}>

@@ -239,6 +239,27 @@
       "when": 1793919000000,
       "tag": "0033_result_unit",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1793920000000,
+      "tag": "0034_write_offs",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1793921000000,
+      "tag": "0035_result_units",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1793922000000,
+      "tag": "0036_account_allows_result_unit",
+      "breakpoints": true
     }
   ]
 }

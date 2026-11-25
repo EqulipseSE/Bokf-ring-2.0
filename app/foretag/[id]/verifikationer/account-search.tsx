@@ -17,7 +17,7 @@ type AccountSearchProps = {
   selectedId: string;
   onQueryChange: (query: string) => void;
   onSelect: (account: Account | null) => void;
-  onCommit: () => void;
+  onCommit: (account?: Account | null) => void;
   /** Tomt kontofält + Enter. Returnera true om tangenten är hanterad. */
   onBlankEnter?: () => boolean;
   onFocusLine?: () => void;
@@ -79,7 +79,7 @@ export function AccountSearch({
   function choose(account: Account) {
     onSelect(account);
     setOpen(false);
-    onCommit();
+    onCommit(account);
   }
 
   function commitCurrent() {
@@ -99,7 +99,7 @@ export function AccountSearch({
     }
     if (selectedId) {
       setOpen(false);
-      onCommit();
+      onCommit(accounts.find((account) => account.id === selectedId) ?? null);
     }
   }
 
@@ -124,13 +124,14 @@ export function AccountSearch({
         name: result.account.name,
         vatCode: result.account.vatCode,
         active: true,
+        allowsResultUnit: result.account.allowsResultUnit,
       };
       onQueryChange(account.number);
       onSelect(account);
       setEditor(null);
       setOpen(false);
       router.refresh();
-      onCommit();
+      onCommit(account);
     } catch {
       setSaveError("Kontot kunde inte sparas.");
     } finally {

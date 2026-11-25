@@ -102,6 +102,40 @@ export const customers = pgTable(
   (table) => [unique("customers_company_number").on(table.companyId, table.number)]
 );
 
+export const writeOffs = pgTable(
+  "write_offs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    code: text("code").notNull(),
+    text: text("text").notNull(),
+    accountNumber: text("account_number").notNull(),
+  },
+  (t) => [
+    unique("write_offs_company_code_unique").on(t.companyId, t.code),
+    index("write_offs_company_idx").on(t.companyId),
+  ]
+);
+
+/** Kod + namn. Kopplas till voucher_lines.result_unit senare. */
+export const resultUnits = pgTable(
+  "result_units",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    code: text("code").notNull(),
+    name: text("name").notNull(),
+  },
+  (t) => [
+    unique("result_units_company_code_unique").on(t.companyId, t.code),
+    index("result_units_company_idx").on(t.companyId),
+  ]
+);
+
 /** Ett lock per företag: alla datum t.o.m. lockedThrough är låsta. */
 export const companyPeriodLocks = pgTable("company_period_locks", {
   companyId: uuid("company_id")
@@ -128,6 +162,8 @@ export const accounts = pgTable(
     // Systemkod från lib/vat-codes.ts, valfri default vid kontering.
     vatCode: text("vat_code"),
     active: boolean("active").notNull().default(true),
+    // true = Enter efter konto går till resultatenhet vid kontering.
+    allowsResultUnit: boolean("allows_result_unit").notNull().default(false),
   },
   (t) => [
     unique("accounts_company_number_unique").on(t.companyId, t.number),
@@ -264,6 +300,8 @@ export const companiesRelations = relations(companies, ({ many, one }) => ({
   accounts: many(accounts),
   voucherSeries: many(voucherSeries),
   vouchers: many(vouchers),
+  writeOffs: many(writeOffs),
+  resultUnits: many(resultUnits),
   periodLock: one(companyPeriodLocks, {
     fields: [companies.id],
     references: [companyPeriodLocks.companyId],
@@ -552,3 +590,5 @@ export type VoucherSeries = typeof voucherSeries.$inferSelect;
 export type Voucher = typeof vouchers.$inferSelect;
 export type VoucherLine = typeof voucherLines.$inferSelect;
 export type VoucherAttachment = typeof voucherAttachments.$inferSelect;
+export type WriteOffRow = typeof writeOffs.$inferSelect;
+export type ResultUnitRow = typeof resultUnits.$inferSelect;

@@ -523,14 +523,13 @@ export async function updateVoucher(
 }
 
 export async function nextVoucherTransaction(
-  companyId: string,
-  afterId: string | null
+  companyId: string
 ): Promise<{ ok: true; transaction: NextVoucherTransaction | null } | { ok: false; error: string }> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Du är inte inloggad." };
   const company = await getCompany(companyId);
   if (!company) return { ok: false, error: "Företaget finns inte." };
-  const transaction = await nextUnbookedTransaction(company.id, afterId);
+  const transaction = await nextUnbookedTransaction(company.id);
   return { ok: true, transaction };
 }
 
