@@ -17,7 +17,7 @@ import { isValidOrgNumber } from "@/lib/organisationsnummer";
 export type CreateCompanyState = { error: string } | null;
 
 export type CompanyLookupState =
-  | { name: string; legalForm: "ab" | "ef" | null; legalFormLabel: string }
+  | { name: string; legalForm: "ab" | "ef" | "hb" | null; legalFormLabel: string }
   | { error: string };
 
 export async function fetchCompany(

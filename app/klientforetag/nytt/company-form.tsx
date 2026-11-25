@@ -24,7 +24,7 @@ export function CompanyForm() {
 
   function onLegalFormChange(value: LegalForm) {
     setLegalForm(value);
-    setChart(value === "ab" ? "bas-2026-ab" : "bas-2026-ef");
+    setChart(value === "ef" ? "bas-2026-ef" : "bas-2026-ab");
   }
 
   return (

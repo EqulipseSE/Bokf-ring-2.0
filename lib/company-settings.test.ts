@@ -24,10 +24,11 @@ describe("parseVatPeriodKind", () => {
 });
 
 describe("parseLegalForm", () => {
-  it("godkänner aktiebolag och enskild firma", () => {
+  it("godkänner aktiebolag, enskild firma och handelsbolag", () => {
     assert.deepEqual(parseLegalForm("ab"), { ok: true, value: "ab" });
     assert.deepEqual(parseLegalForm("ef"), { ok: true, value: "ef" });
-    assert.equal(parseLegalForm("hb").ok, false);
+    assert.deepEqual(parseLegalForm("hb"), { ok: true, value: "hb" });
+    assert.equal(parseLegalForm("kb").ok, false);
   });
 });
 

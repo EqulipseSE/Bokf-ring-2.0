@@ -32,13 +32,15 @@ pnpm db:migrate
 # 5. Skapa första användaren (se nedan)
 pnpm create-user admin@byran.se "Anna Andersson" valfritt-lösenord
 
-# 6. Starta utvecklingsservern
+# 6. Starta utvecklingsservern (bara localhost)
 pnpm dev
 ```
 
-Öppna [http://localhost:3000](http://localhost:3000) och logga in. Välj ett företag och gå till
+Öppna [http://127.0.0.1:3000](http://127.0.0.1:3000) och logga in. Välj ett företag och gå till
 **Bokföring → Verifikationer**. Där öppnas en tredje menyrad med **Lista**, **Kort**
 och **Ny verifikation**.
+
+Vid test med riktiga underlag: se [docs/lokal-sakerhet.md](docs/lokal-sakerhet.md).
 
 ## Kontoplan (BAS 2026)
 

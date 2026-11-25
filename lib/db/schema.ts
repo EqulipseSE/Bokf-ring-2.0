@@ -47,7 +47,7 @@ export const companies = pgTable("companies", {
   vatPeriod: text("vat_period").notNull().default("manad"),
   // faktura | kontant — sparas nu, används av AI-bokföring senare.
   accountingMethod: text("accounting_method").notNull().default("faktura"),
-  // ab | ef
+  // ab | ef | hb
   legalForm: text("legal_form").notNull().default("ab"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

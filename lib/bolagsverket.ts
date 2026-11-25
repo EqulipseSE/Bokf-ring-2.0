@@ -32,6 +32,12 @@ export function legalFormFromBolagsverket(
   const normalized = `${code ?? ""} ${label ?? ""}`.toLocaleLowerCase("sv");
   if (normalized.includes("enskild")) return "ef";
   if (code?.toUpperCase() === "AB" || normalized.includes("aktiebolag")) return "ab";
+  if (
+    code?.toUpperCase() === "HB" ||
+    normalized.includes("handelsbolag")
+  ) {
+    return "hb";
+  }
   return null;
 }
 

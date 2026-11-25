@@ -26,8 +26,9 @@ describe("companyFromBolagsverket", () => {
     });
   });
 
-  it("mappar enskild näringsidkare och lämnar övriga former", () => {
+  it("mappar enskild näringsidkare och handelsbolag", () => {
     assert.equal(legalFormFromBolagsverket("E", "Enskild näringsidkare"), "ef");
-    assert.equal(legalFormFromBolagsverket("HB", "Handelsbolag"), null);
+    assert.equal(legalFormFromBolagsverket("HB", "Handelsbolag"), "hb");
+    assert.equal(legalFormFromBolagsverket("KB", "Kommanditbolag"), null);
   });
 });
